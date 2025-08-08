@@ -16,6 +16,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import jakarta.validation.Valid;
 
 @WebMvcTest(AIController.class)
 class AIControllerTest {
@@ -42,5 +43,20 @@ class AIControllerTest {
                         .content(objectMapper.writeValueAsString(request))
                         .with(csrf()))
                 .andExpect(status().isAccepted());
+    }
+
+    @WithMockUser
+    @Test
+    @DisplayName("TDD 2단계: 쿼리 내용이 비어있을 때 400 에러 반환 테스트")
+    void analyzeQuery_Fail_WithEmptyQuery() throws Exception {
+        // given
+        AnalyzeQueryRequest request = new AnalyzeQueryRequest("", "test-api", false);
+
+        // when & then
+        mockMvc.perform(post("/ai/analyze-query")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
     }
 }

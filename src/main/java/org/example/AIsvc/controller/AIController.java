@@ -1,7 +1,11 @@
 package org.example.AIsvc.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.example.AIsvc.dto.common.BaseResponse;
 import org.example.AIsvc.dto.request.AnalyzeQueryRequest;
+import org.example.AIsvc.dto.response.AnalyzeQueryResponse;
 import org.example.AIsvc.service.AIService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 
+@Tag(name = "AI Service", description = "AI 기반 API 분석 및 생성 서비스")
 @RestController
 @RequestMapping("/ai")
 @RequiredArgsConstructor
@@ -18,12 +23,19 @@ public class AIController {
     
     private final AIService aiService;
 
+    @Operation(summary = "자연어 쿼리 분석 및 API 생성 요청", description = "사용자의 자연어 쿼리를 분석하여 API 생성 프로세스를 시작합니다.")
     @PostMapping("/analyze-query")
-    // 요청 본문을 AnalyzeQueryRequest 객체에 매핑
-    public ResponseEntity<Void> analyzeQuery(@Valid @RequestBody AnalyzeQueryRequest request) {
-        // 서비스 계층의 메소드를 호출
-        aiService.analyzeAndInitiateCreation(request);
-        // HTTP 상태 코드 202를 담은 빈 응답을 반환
-        return ResponseEntity.accepted().build();
+    // 1. 메소드의 반환 타입을 실제 데이터가 포함된 형태로 변경
+    public ResponseEntity<BaseResponse<AnalyzeQueryResponse>> analyzeQuery(
+            @Valid @RequestBody AnalyzeQueryRequest request) {
+
+        // 2. 서비스로부터 실제 데이터가 담긴 응답 객체를 받음
+        AnalyzeQueryResponse responseData = aiService.analyzeAndInitiateCreation(request);
+
+        // 3. 표준화된 성공 응답 형식으로 데이터를 감쌈
+        BaseResponse<AnalyzeQueryResponse> response = BaseResponse.success(responseData, "API 생성 요청이 성공적으로 분석되어 전달되었습니다.");
+
+        // 4. ResponseEntity를 사용하여 HTTP 상태 코드 202 (Accepted)와 함께 '데이터가 담긴' 응답을 반환
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
     }
 }

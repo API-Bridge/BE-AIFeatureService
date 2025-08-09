@@ -31,8 +31,11 @@ public class LLMResponseParser {
      */
     public AnalysisResultDto parse(String llmResponseJson) {
         try {
-            // 1. JSON 문자열을 임시 DTO 객체(LlmResponseDto)로 변환(역직렬화)
-            LlmResponseDto llmResponseDto = objectMapper.readValue(llmResponseJson, LlmResponseDto.class);
+            // 0. 마크다운 형식에서 순수 JSON 추출
+            String cleanJsonString = extractJsonFromMarkdown(llmResponseJson);
+            
+            // 1. JSON 문자열을 임시 DTO 객체(LlmResponseDto)로 변환
+            LlmResponseDto llmResponseDto = objectMapper.readValue(cleanJsonString, LlmResponseDto.class);
 
             // 2. 문자열 리스트를 ENUM 리스트로 변환
             // llmResponseDto.getDomains()가 null일 경우를 대비하여 안전하게 빈 리스트로 처리
@@ -61,7 +64,6 @@ public class LLMResponseParser {
             return AnalysisResultDto.builder()
                     .detectedDomains(domainStrings)
                     .detectedKeywords(keywordStrings)
-                    .priority("parallel") // 우선순위는 현재 하드코딩. 향후 LLM이 결정하도록 확장 가능.
                     .build();
 
         } catch (JsonProcessingException e) {
@@ -70,9 +72,40 @@ public class LLMResponseParser {
         }
     }
 
+    /**
+     * 마크다운 형식(```json)에서 순수 JSON 문자열 추출
+     * @param response LLM으로부터 받은 원본 응답
+     * @return 순수 JSON 문자열
+     */
+    private String extractJsonFromMarkdown(String response) {
+        if (response == null) {
+            return "";
+        }
+        
+        // 마크다운 코드 블록 제거
+        String cleaned = response.trim();
+        if (cleaned.startsWith("```json")) {
+            cleaned = cleaned.substring(7);
+        }
+        if (cleaned.startsWith("```")) {
+            cleaned = cleaned.substring(3);
+        }
+        if (cleaned.endsWith("```")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 3);
+        }
+        
+        return cleaned.trim();
+    }
+
     @Getter
     private static class LlmResponseDto {
         private List<String> domains;
+        private List<String> domain; // 단수형도 처리
         private List<String> keywords;
+        
+        // domains가 null이면 domain을 사용하도록 하는 getter 메서드
+        public List<String> getDomains() {
+            return domains != null ? domains : domain;
+        }
     }
 }

@@ -2,6 +2,7 @@ package org.example.AIsvc;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 
 /**
  * Custom API Service 애플리케이션 기본 테스트 클래스
@@ -13,6 +14,10 @@ import org.springframework.boot.test.context.SpringBootTest;
  * - 애플리케이션 시작 가능 여부 검증
  */
 @SpringBootTest
+@TestPropertySource(properties = {
+    "gemini.api.key=test-key-for-context-loading",
+    "spring.profiles.active=dev"
+})
 class AISvcApplicationTests {
 
     /**

@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal; // 현재 인증된 사용자 정보를 주입받기 위한 어노테이션
+import org.springframework.security.oauth2.jwt.Jwt;
+
 @Tag(name = "AI Service", description = "AI 기반 API 분석 및 생성 서비스")
 @RestController
 @RequestMapping("/ai")
@@ -27,15 +30,19 @@ public class AIController {
     @PostMapping("/analyze-query")
     // 1. 메소드의 반환 타입을 실제 데이터가 포함된 형태로 변경
     public ResponseEntity<BaseResponse<AnalyzeQueryResponse>> analyzeQuery(
+            // Spring Security가 현재 요청의 인증 토큰(JWT) 정보를 파싱하여 Jwt 객체로 주입 (Optional)
+            @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody AnalyzeQueryRequest request) {
 
-        // 2. 서비스로부터 실제 데이터가 담긴 응답 객체를 받음
-        AnalyzeQueryResponse responseData = aiService.analyzeAndInitiateCreation(request);
+        // JWT 토큰에서 사용자의 고유 식별자인 'subject'를 추출. 토큰이 없으면 "anonymous" 사용
+        String userId = jwt != null ? jwt.getSubject() : "anonymous";
 
-        // 3. 표준화된 성공 응답 형식으로 데이터를 감쌈
+        // 서비스로부터 실제 데이터가 담긴 응답 객체를 받음
+        AnalyzeQueryResponse responseData = aiService.analyzeAndInitiateCreation(request, userId);
+
+        // 표준화된 성공 응답 형식으로 데이터를 감쌈
         BaseResponse<AnalyzeQueryResponse> response = BaseResponse.success(responseData, "API 생성 요청이 성공적으로 분석되어 전달되었습니다.");
-
-        // 4. ResponseEntity를 사용하여 HTTP 상태 코드 202 (Accepted)와 함께 '데이터가 담긴' 응답을 반환
+        // ResponseEntity를 사용하여 HTTP 상태 코드 202 (Accepted)와 함께 '데이터가 담긴' 응답을 반환
         return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
     }
 }

@@ -3,5 +3,5 @@ import org.example.AIsvc.dto.request.AnalyzeQueryRequest;
 import org.example.AIsvc.dto.response.AnalyzeQueryResponse;
 
 public interface AIService {
-    AnalyzeQueryResponse analyzeAndInitiateCreation(AnalyzeQueryRequest request);
+    AnalyzeQueryResponse analyzeAndInitiateCreation(AnalyzeQueryRequest request, String userId);
 }

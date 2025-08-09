@@ -150,7 +150,7 @@ management:
 server:
   port: ${SERVER_PORT:8080}
   servlet:
-    context-path: /api/v1
+    context-path: /api
   tomcat:
     threads:
       max: 200
@@ -165,6 +165,12 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     operationsSorter: method
+
+# 호출할 다른 서비스들의 주소를 관리하는 섹션
+services:
+  custom-api:
+    url: http://localhost:8081/api/v1 # 커스텀API 관리 서비스의 로컬 주소 (포트는 예시)
+
 
 # Gemini API 설정
 gemini:

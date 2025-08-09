@@ -2,7 +2,9 @@ package org.example.AIsvc.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.AIsvc.client.CustomApiClient;
 import org.example.AIsvc.client.GeminiClient;
+import org.example.AIsvc.dto.custom_api.InitiateCreationRequest;
 import org.example.AIsvc.dto.gemini.GeminiRequest;
 import org.example.AIsvc.dto.gemini.GeminiResponse;
 import org.example.AIsvc.dto.request.AnalyzeQueryRequest;
@@ -12,6 +14,7 @@ import org.example.AIsvc.enums.ApiDomain;
 import org.example.AIsvc.enums.ApiKeyword;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.core.env.Environment;
 
 import java.util.stream.Collectors;
 
@@ -20,18 +23,20 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AIServiceImpl implements AIService {
 
-    private final GeminiClient geminiClient; // Gemini API와 통신하는 클라이언트
-    private final LLMResponseParser llmResponseParser; // LLM 응답을 파싱하는 컴포넌트
+    private final GeminiClient geminiClient;
+    private final LLMResponseParser llmResponseParser;
+    private final CustomApiClient customApiClient;
+    private final Environment environment;
 
     @Value("${gemini.api.key}")
-    private String geminiApiKey;
+    private String geminiApiKey; // Gemini API 키
     @Value("${gemini.model}")
-    private String model;
+    private String model; // 사용할 Gemini 모델 이름
 
     @Override
-    public AnalyzeQueryResponse analyzeAndInitiateCreation(AnalyzeQueryRequest request) {
-        // 서비스 로직의 시작을 알리는 로그를 기록. 중괄호({})는 파라미터를 안전하게 삽입
-        log.info("쿼리 분석 시작: {}", request.getQuery());
+    public AnalyzeQueryResponse analyzeAndInitiateCreation(AnalyzeQueryRequest request, String userId) {
+
+        log.info("사용자 ID '{}'의 쿼리 분석 시작: {}", userId, request.getQuery());
 
         // 1. LLM에 전달할 프롬프트를 생성
         String prompt = createPromptForAnalysis(request.getQuery());
@@ -53,9 +58,25 @@ public class AIServiceImpl implements AIService {
         // 6. 주입받은 파서를 사용하여 JSON 응답을 파싱
         AnalysisResultDto analysisResult = llmResponseParser.parse(llmResponseJson);
 
-        // TODO: Day 4에서 이 analysisResult를 CustomApiSvc로 전달하는 로직을 구현합니다.
+        // 7. dev 프로필에서는 CustomAPI 호출을 건너뛰고, prod에서는 정상 호출
+        if (!environment.acceptsProfiles(org.springframework.core.env.Profiles.of("dev"))) {
+            // 8. CustomApiClient로 보낼 요청 DTO를 생성
+            InitiateCreationRequest creationRequest = InitiateCreationRequest.builder()
+                    .userId(userId) // 컨트롤러에서 전달받은 userId
+                    .customApiId(request.getCustomApiId()) // 기존 요청에 있던 customApiId
+                    .domains(analysisResult.getDetectedDomains()) // 파싱된 도메인 리스트
+                    .keywords(analysisResult.getDetectedKeywords()) // 파싱된 키워드 리스트
+                    .isPublic(request.getIsPublic()) // 기존 요청에 있던 isPublic 플래그
+                    .build();
 
-        // 7. 최종 응답 객체에 파싱된 analysisResult를 포함하여 반환
+            // 9. CustomApiClient를 호출하여 다음 서비스로 작업을 전달
+            customApiClient.initiateCreation(creationRequest);
+            log.info("CustomAPI 관리 서비스로 생성 요청 전달 완료. Custom API ID: {}", request.getCustomApiId());
+        } else {
+            log.info("개발 환경에서는 CustomAPI 호출을 건너뜁니다. Custom API ID: {}", request.getCustomApiId());
+        }
+
+        // 10. 최종 응답 객체에 파싱된 analysisResult를 포함하여 반환
         return AnalyzeQueryResponse.builder()
                 .status("ACCEPTED")
                 .message("API 생성 요청이 성공적으로 분석되어 전달되었습니다.")
@@ -70,6 +91,7 @@ public class AIServiceImpl implements AIService {
      * @return LLM에 최적화된 프롬프트 문자열
      */
     private String createPromptForAnalysis(String query) {
+        // 프롬프트 엔지니어링: 더 명확하고 강력하게 JSON 형식만을 요구하도록 수정
         return String.format(
                 "사용자 쿼리를 분석하여 가장 적합한 도메인과 키워드를 JSON 형식으로만 응답해줘. " +
                         "다른 설명이나 Markdown 코드 블록 없이, 오직 JSON 객체 자체만 반환해야 해. " +
@@ -82,12 +104,15 @@ public class AIServiceImpl implements AIService {
         );
     }
 
+    // 모든 ApiDomain 코드를 콤마로 구분된 문자열로 만드는 유틸리티 메소드
     private String getAvailableDomains() {
+        // ENUM의 모든 상수 배열을 스트림으로 변환
         return java.util.Arrays.stream(ApiDomain.values())
-                .map(ApiDomain::getCode)
-                .collect(Collectors.joining(", "));
+                .map(ApiDomain::getCode) // 각 ENUM 상수에 대해 getCode() 메소드를 호출하여 코드 문자열로 변환
+                .collect(Collectors.joining(", ")); // 변환된 모든 문자열을 ", "로 연결하여 하나의 문자열로 변환
     }
 
+    // 모든 ApiKeyword 코드를 콤마로 구분된 문자열로 만드는 유틸리티 메소드
     private String getAvailableKeywords() {
         return java.util.Arrays.stream(ApiKeyword.values())
                 .map(ApiKeyword::getCode)

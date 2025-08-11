@@ -135,6 +135,7 @@ class AIServiceImplTest {
 
         assertThat(capturedRequest.getUserId()).isEqualTo(userId);
         assertThat(capturedRequest.getCustomApiId()).isEqualTo("seoul-air-weather");
+        assertThat(capturedRequest.getOriginalQuery()).isEqualTo(request.getQuery());
         assertThat(capturedRequest.getDomains()).containsExactly("weather");
         assertThat(capturedRequest.getKeywords()).containsExactlyInAnyOrder("current_weather", "air_quality");
     }

@@ -1,5 +1,7 @@
 package org.example.AIsvc.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.AIsvc.client.CustomApiClient;
@@ -27,6 +29,7 @@ public class AIServiceImpl implements AIService {
     private final LLMResponseParser llmResponseParser;
     private final CustomApiClient customApiClient;
     private final Environment environment;
+    private final ObjectMapper objectMapper;
 
     @Value("${gemini.api.key}")
     private String geminiApiKey; // Gemini API 키
@@ -64,12 +67,19 @@ public class AIServiceImpl implements AIService {
             InitiateCreationRequest creationRequest = InitiateCreationRequest.builder()
                     .userId(userId) // 컨트롤러에서 전달받은 userId
                     .customApiId(request.getCustomApiId()) // 기존 요청에 있던 customApiId
+                    .originalQuery(request.getQuery()) // 사용자 입력 쿼리
                     .domains(analysisResult.getDetectedDomains()) // 파싱된 도메인 리스트
                     .keywords(analysisResult.getDetectedKeywords()) // 파싱된 키워드 리스트
                     .isPublic(request.getIsPublic()) // 기존 요청에 있던 isPublic 플래그
                     .build();
 
             // 9. CustomApiClient를 호출하여 다음 서비스로 작업을 전달
+            // CustomApiClient를 호출하기 직전에, 보낼 객체를 JSON 문자열로 변환하여 로그로 출력
+            try {
+                log.info("Sending to CustomApiSvc -> \n{}", objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(creationRequest));
+            } catch (JsonProcessingException e) {
+                log.error("Failed to serialize creationRequest", e);
+            }
             customApiClient.initiateCreation(creationRequest);
             log.info("CustomAPI 관리 서비스로 생성 요청 전달 완료. Custom API ID: {}", request.getCustomApiId());
         } else {

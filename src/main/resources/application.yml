@@ -168,9 +168,14 @@ springdoc:
 
 # 호출할 다른 서비스들의 주소를 관리하는 섹션
 services:
+  # 커스텀API 관리 서비스 설정
   custom-api:
-    url: http://localhost:8081/api/v1 # 커스텀API 관리 서비스의 로컬 주소 (포트는 예시)
-
+    # 커스텀API 관리 서비스 주소
+    url: http://localhost:8081/api
+  # API관리 서비스 설정
+  api-management:
+    # API관리 서비스 주소
+    url: http://localhost:8082/api
 
 # Gemini API 설정
 gemini:

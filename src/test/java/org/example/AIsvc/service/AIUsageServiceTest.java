@@ -22,6 +22,7 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(MockitoExtension.class)
 class AIUsageServiceTest {
 
+    // 테스트용 가짜 API 관리 서비스
     @Mock
     private ApiManagementClient apiManagementClient;
 
@@ -42,7 +43,7 @@ class AIUsageServiceTest {
         );
         ApiUrlResponse fakeResponse = new ApiUrlResponse(fakeApiDetails);
 
-        // "apiManagementClient의 getApiUrls 메소드가 어떤 입력으로 호출되든, fakeResponse를 반환하라"는 규칙
+        // apiManagementClient의 getApiUrls 메소드가 어떤 입력으로 호출되든, fakeResponse를 반환
         given(apiManagementClient.getApiUrls(any())).willReturn(fakeResponse);
 
         // when

@@ -74,6 +74,11 @@ dependencies {
     testImplementation 'org.testcontainers:kafka'
 
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Microservice Communication & Resilience
+    implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
+    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
 }
 
 dependencyManagement {

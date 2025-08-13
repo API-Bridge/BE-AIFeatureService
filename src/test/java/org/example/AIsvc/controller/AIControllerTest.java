@@ -11,6 +11,9 @@ import org.springframework.boot.test.mock.mockito.MockBean; // 3.4.0 부터 중�
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.example.AIsvc.service.AIOrchestrationService; // 오케스트레이션 서비스 import (아직 없음)
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.mockito.Mockito.verify;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -29,6 +32,9 @@ class AIControllerTest {
 
     @MockBean
     private AIService aiService;
+
+    @MockBean
+    private AIOrchestrationService aiOrchestrationService;
 
     @WithMockUser
     @Test
@@ -58,5 +64,22 @@ class AIControllerTest {
                         .content(objectMapper.writeValueAsString(request))
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
+    }
+
+    @WithMockUser
+    @Test
+    @DisplayName("성공: 커스텀 API 실행 요청 시 오케스트레이션 서비스를 호출")
+    void executeCustomApi_Success() throws Exception {
+        // given
+        String customApiId = "custom-api-12345";
+        String userQuery = "latitude=37.5&longitude=127.0";
+
+        // when & then - 실행 및 검증
+        mockMvc.perform(get("/ai/execute/{customApiId}", customApiId) // GET /ai/execute/{ID} 경로로 요청
+                        .param("query", userQuery) // query 파라미터 추가
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        verify(aiOrchestrationService).executeCustomApi(customApiId, userQuery);
     }
 }

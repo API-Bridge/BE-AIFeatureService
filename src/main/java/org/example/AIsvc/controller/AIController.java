@@ -14,6 +14,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
+import org.example.AIsvc.service.AIOrchestrationService;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal; // 현재 인증된 사용자 정보를 주입받기 위한 어노테이션
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -25,6 +30,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 public class AIController {
     
     private final AIService aiService;
+    private final AIOrchestrationService aiOrchestrationService;
 
     @Operation(summary = "자연어 쿼리 분석 및 API 생성 요청", description = "사용자의 자연어 쿼리를 분석하여 API 생성 프로세스를 시작합니다.")
     @PostMapping("/analyze-query")
@@ -44,5 +50,17 @@ public class AIController {
         BaseResponse<AnalyzeQueryResponse> response = BaseResponse.success(responseData, "API 생성 요청이 성공적으로 분석되어 전달되었습니다.");
         // ResponseEntity를 사용하여 HTTP 상태 코드 202 (Accepted)와 함께 '데이터가 담긴' 응답을 반환
         return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    // 커스텀 API 실행을 위한 엔드포인트
+    @Operation(summary = "생성된 커스텀 API 실행", description = "ID와 쿼리 파라미터를 사용하여 생성된 커스텀 API를 실행합니다.")
+    @GetMapping("/execute/{customApiId}")
+    public ResponseEntity<BaseResponse<Object>> executeCustomApi(
+            @PathVariable String customApiId,
+            @RequestParam String query) {
+
+        Object result = aiOrchestrationService.executeCustomApi(customApiId, query);
+
+        return ResponseEntity.ok(BaseResponse.success(result));
     }
 }

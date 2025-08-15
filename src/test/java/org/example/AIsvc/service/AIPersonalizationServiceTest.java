@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,11 +32,11 @@ class AIPersonalizationServiceTest {
     private UserApiClient userApiClient;
     @Mock
     private GeminiClient geminiClient;
-    @Mock
-    private ObjectMapper objectMapper;
 
     @InjectMocks
     private AIPersonalizationServiceImpl personalizationService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     @DisplayName("성공: 무료 플랜 사용자가 AI+를 켜면 BYOK로 데이터를 가공한다")
@@ -43,7 +44,7 @@ class AIPersonalizationServiceTest {
         // given
         String userId = "auth0|free-user";
         String userArn = "arn:aws:secretsmanager:...:user-gemini-key-xyz";
-        Object rawData = Map.of("weather", "맑음"); // 가공 전 원본 데이터
+        Map<String, Object> rawData = new HashMap<>(Map.of("weather", "맑음"));
         String personalizedSummary = "오늘 날씨는 맑습니다!";
 
         // 1. UserApiClient의 가짜 동작 정의
@@ -52,15 +53,16 @@ class AIPersonalizationServiceTest {
 
         // 2. GeminiClient의 가짜 동작 정의
         GeminiResponse.Part part = new GeminiResponse.Part(personalizedSummary);
-        given(geminiClient.generateContent(anyString(), anyString(), any())).willReturn(new GeminiResponse(Collections.singletonList(new GeminiResponse.Candidate(new GeminiResponse.Content(Collections.singletonList(part), "model")))));
+        GeminiResponse.Content content = new GeminiResponse.Content(Collections.singletonList(part), "model");
+        given(geminiClient.generateContent(anyString(), anyString(), any())).willReturn(new GeminiResponse(Collections.singletonList(new GeminiResponse.Candidate(content))));
 
-        // 3. ObjectMapper의 가짜 동작 정의
-        given(objectMapper.writeValueAsString(rawData)).willReturn("{\"weather\":\"맑음\"}");
-        given(objectMapper.convertValue(rawData, Map.class)).willReturn((Map<String, Object>) rawData);
-        
+//        // 3. ObjectMapper의 가짜 동작 정의
+//        given(objectMapper.convertValue(rawData, new TypeReference<Map<String, Object>>() {})).willReturn((Map<String, Object>) rawData);
+
         // 4. @Value 필드 값 설정
         ReflectionTestUtils.setField(personalizationService, "systemGeminiApiKey", "system-api-key");
         ReflectionTestUtils.setField(personalizationService, "model", "gemini-pro");
+        ReflectionTestUtils.setField(personalizationService, "objectMapper", this.objectMapper);
 
         // when
         Map<String, Object> result = personalizationService.personalize(userId, rawData);
@@ -76,21 +78,25 @@ class AIPersonalizationServiceTest {
     void personalize_ProUser_WithAiPlus() throws Exception {
         // given
         String userId = "auth0|pro-user";
-        Object rawData = Map.of("stock", "상승");
+        Map<String, Object> rawData = new HashMap<>(Map.of("stock", "상승"));
         String personalizedInsights = "주식 시장이 활기를 띠고 있습니다.";
-        
+        String fakeLlmResultJson = "{\"summary\":\"요약문\",\"insights\":\"주식 시장이 활기를 띠고 있습니다.\",\"predictions\":\"예측\"}";
+        Map<String, Object> fakePersonalizedData = Map.of("insights", personalizedInsights);
+
         // 1. UserApiClient는 플랜 정보만 반환하도록 설정
         given(userApiClient.getUserPlan(userId)).willReturn(new UserPlanResponse("PRO", true));
 
         // 2. GeminiClient는 인사이트가 포함된 응답을 반환하도록 설정
-        GeminiResponse.Part part = new GeminiResponse.Part(personalizedInsights);
+        GeminiResponse.Part part = new GeminiResponse.Part(fakeLlmResultJson);
         given(geminiClient.generateContent(anyString(), anyString(), any())).willReturn(new GeminiResponse(Collections.singletonList(new GeminiResponse.Candidate(new GeminiResponse.Content(Collections.singletonList(part), "model")))));
-        
+
         // (ObjectMapper, @Value 설정은 위와 유사하게)
-        given(objectMapper.writeValueAsString(rawData)).willReturn("{\"stock\":\"상승\"}");
-        given(objectMapper.convertValue(rawData, Map.class)).willReturn((Map<String, Object>) rawData);
+//        given(objectMapper.writeValueAsString(rawData)).willReturn("{\"stock\":\"상승\"}");
+//        given(objectMapper.readValue(anyString(), any(TypeReference.class))).willReturn(fakePersonalizedData);
+//        given(objectMapper.convertValue(rawData, new TypeReference<Map<String, Object>>() {})).willReturn((Map<String, Object>) rawData);
         ReflectionTestUtils.setField(personalizationService, "systemGeminiApiKey", "system-api-key");
         ReflectionTestUtils.setField(personalizationService, "model", "gemini-pro");
+        ReflectionTestUtils.setField(personalizationService, "objectMapper", this.objectMapper);
 
         // when
         Map<String, Object> result = personalizationService.personalize(userId, rawData);

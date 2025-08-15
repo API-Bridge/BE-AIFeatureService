@@ -1,34 +1,37 @@
 package org.example.AIsvc.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import org.example.AIsvc.client.CustomApiClient;
 import org.example.AIsvc.client.GeminiClient;
+import org.example.AIsvc.dto.custom_api.InitiateCreationRequest;
 import org.example.AIsvc.dto.gemini.GeminiResponse;
 import org.example.AIsvc.dto.request.AnalyzeQueryRequest;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
-
-import java.util.Collections;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
-
 import org.example.AIsvc.dto.response.AnalyzeQueryResponse;
 import org.example.AIsvc.dto.response.AnalyzeQueryResponse.AnalysisResultDto;
 import org.example.AIsvc.enums.ApiDomain;
 import org.example.AIsvc.enums.ApiKeyword;
-import java.util.List;
-import static org.assertj.core.api.Assertions.assertThat;
-
-import org.example.AIsvc.client.CustomApiClient; // CustomApiClient 추가
-import org.example.AIsvc.dto.custom_api.InitiateCreationRequest; // InitiateCreationRequest 추가
+import org.example.AIsvc.event.model.ApiAnalysisEvent;
+import org.example.AIsvc.event.publisher.EventPublisher;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.env.Environment;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.Collections;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -38,12 +41,16 @@ class AIServiceImplTest {
     private GeminiClient geminiClient;
     @Mock
     private LLMResponseParser llmResponseParser;
-
     @Mock
     private CustomApiClient customApiClient;
-    
     @Mock
     private Environment environment;
+    @Mock
+    private EventPublisher eventPublisher;
+    @Mock
+    private ObjectMapper objectMapper;
+    @Mock
+    private ObjectWriter objectWriter;
 
     @InjectMocks
     private AIServiceImpl aiService;
@@ -96,8 +103,8 @@ class AIServiceImplTest {
     }
 
     @Test
-    @DisplayName("성공: 분석 결과를 CustomApiClient로 정확히 전달한다")
-    void analyzeAndInitiateCreation_sendsResultToCustomApiClient() {
+    @DisplayName("성공: 분석 결과를 CustomApiClient로 전달하고 Kafka 이벤트를 발행한다")
+    void analyzeAndInitiateCreation_sendsResultToCustomApiClient() throws JsonProcessingException{
         // given
         ReflectionTestUtils.setField(aiService, "geminiApiKey", "test-api-key");
         ReflectionTestUtils.setField(aiService, "model", "gemini-test-model");
@@ -122,6 +129,9 @@ class AIServiceImplTest {
                 .detectedKeywords(List.of("current_weather", "air_quality"))
                 .build();
         given(llmResponseParser.parse(anyString())).willReturn(fakeParsedResult);
+        given(objectMapper.writerWithDefaultPrettyPrinter()).willReturn(objectWriter);
+        given(objectWriter.writeValueAsString(any())).willReturn("{\"key\":\"value\"}");
+
 
         // when
         aiService.analyzeAndInitiateCreation(request, userId);
@@ -138,5 +148,7 @@ class AIServiceImplTest {
         assertThat(capturedRequest.getOriginalQuery()).isEqualTo(request.getQuery());
         assertThat(capturedRequest.getDomains()).containsExactly("weather");
         assertThat(capturedRequest.getKeywords()).containsExactlyInAnyOrder("current_weather", "air_quality");
+        // eventPublisher의 publishEvent 메소드가 1번 호출되었는지 검증
+        verify(eventPublisher).publishEvent(anyString(), any(ApiAnalysisEvent.class));
     }
 }

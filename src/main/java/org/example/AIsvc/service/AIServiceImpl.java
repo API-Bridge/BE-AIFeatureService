@@ -17,6 +17,8 @@ import org.example.AIsvc.enums.ApiKeyword;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.core.env.Environment;
+import org.example.AIsvc.event.model.ApiAnalysisEvent;
+import org.example.AIsvc.event.publisher.EventPublisher;
 
 import java.util.stream.Collectors;
 
@@ -30,6 +32,7 @@ public class AIServiceImpl implements AIService {
     private final CustomApiClient customApiClient;
     private final Environment environment;
     private final ObjectMapper objectMapper;
+    private final EventPublisher eventPublisher;
 
     @Value("${gemini.api.key}")
     private String geminiApiKey; // Gemini API 키
@@ -86,7 +89,21 @@ public class AIServiceImpl implements AIService {
             log.info("개발 환경에서는 CustomAPI 호출을 건너뜁니다. Custom API ID: {}", request.getCustomApiId());
         }
 
-        // 10. 최종 응답 객체에 파싱된 analysisResult를 포함하여 반환
+        // 10. Kafka로 보낼 이벤트 객체를 생성
+        // 분석 과정에서 얻은 모든 주요 정보를 담음
+        ApiAnalysisEvent event = new ApiAnalysisEvent(
+                userId,
+                request.getCustomApiId(),
+                analysisResult.getDetectedDomains(),
+                analysisResult.getDetectedKeywords(),
+                model // 사용된 LLM 모델 정보도 함께 기록
+        );
+
+        // 11. EventPublisher를 통해 'ai-analysis-logs'라는 토픽으로 이벤트를 발행
+        // 비동기적으로 처리, API 응답 시간을 지연시키지 않음
+        eventPublisher.publishEvent("ai-analysis-logs", event);
+
+        // 12. 최종 응답 객체에 파싱된 analysisResult를 포함하여 반환
         return AnalyzeQueryResponse.builder()
                 .status("ACCEPTED")
                 .message("API 생성 요청이 성공적으로 분석되어 전달되었습니다.")

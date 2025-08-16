@@ -1,38 +1,20 @@
+# ## spring: Spring Boot 애플리케이션 설정을 위한 최상위 키입니다.
 spring:
-  application:
-    name: ai-svc-test
-  
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        
-  h2:
-    console:
-      enabled: true
-      
+  # ## kafka: Kafka 관련 설정을 위한 키입니다.
   kafka:
-    consumer:
-      auto-offset-reset: earliest
-      group-id: test-group
-    producer:
-      bootstrap-servers: ${spring.embedded.kafka.brokers}
-      
-  redis:
-    host: localhost
-    port: 6379
+    # ## bootstrap-servers: 애플리케이션이 연결할 Kafka 브로커의 주소입니다.
+    # ### ${spring.embedded.kafka.brokers}: @EmbeddedKafka 어노테이션이 테스트 실행 시 동적으로 만들어주는
+    # ###                                  테스트용 Kafka 컨테이너의 주소를 의미하는 특수한 값(Placeholder)입니다.
+    bootstrap-servers: ${spring.embedded.kafka.brokers}
 
-logging:
-  level:
-    org.example.customapisvc: DEBUG
-    org.springframework.security: DEBUG
-    org.springframework.kafka: INFO
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+# ## gemini: Gemini API 관련 설정을 위한 키입니다.
+gemini:
+  api:
+    # ## key: 실제 키가 아닌, 테스트가 통과할 수 있도록 아무 값이나 넣어줍니다.
+    # ### 통합 테스트에서는 실제 Gemini API를 호출하지 않으므로, 이 값은 사용되지 않습니다.
+    key: "test-api-key-for-integration-test"
+    # ## url과 model도 실제 애플리케이션과 동일하게 설정해줍니다. (프로퍼티 형식을 맞추기 위함)
+    url: https://generativelanguage.googleapis.com
+  model: gemini-1.5-flash
 
-wiremock:
-  server:
-    port: 0
+# ## 테스트에서는 TestSecurityConfig를 사용하므로, Auth0 관련 설정은 필요 없습니다.

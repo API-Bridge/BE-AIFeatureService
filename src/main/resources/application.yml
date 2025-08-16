@@ -83,26 +83,31 @@ aws:
 # Circuit Breaker 설정 (Resilience4j)
 resilience4j:
   circuitbreaker:
-    instances:
+    # 공통 설정 템플릿을 정의하는 곳
+    configs:
       default:
-        slidingWindowSize: 100
-        permittedNumberOfCallsInHalfOpenState: 10
-        slidingWindowType: COUNT_BASED
-        minimumNumberOfCalls: 20
-        waitDurationInOpenState: 60s
+        # 최근 10번의 호출을 기준으로 실패율을 계산
+        slidingWindowSize: 10
+        # 실패율이 50% 이상이면 서킷을 OPEN
         failureRateThreshold: 50
-        slowCallRateThreshold: 80
-        slowCallDurationThreshold: 3s
-  retry:
+        # 서킷이 OPEN된 후, 10초(10000ms) 동안은 요청을 차단
+        waitDurationInOpenState: 10000ms
+        # HALF-OPEN 상태에서 허용할 테스트 요청 횟수
+        permittedNumberOfCallsInHalfOpenState: 3
+    # 각 Feign 클라이언트에 위에서 만든 'default' 템플릿을 적용
     instances:
-      default:
-        maxAttempts: 3
-        waitDuration: 1s
-        exponentialBackoffMultiplier: 2
-  bulkhead:
-    instances:
-      default:
-        maxConcurrentCalls: 10
+      # GeminiClient (name="gemini-api")를 위한 서킷 브레이커 설정
+      gemini-api:
+        baseConfig: default # 'configs'에 정의된 default 설정을 사용하겠다고 명시
+      # CustomApiClient (name="custom-api-svc")를 위한 서킷 브레이커 설정
+      custom-api-svc:
+        baseConfig: default
+      # ApiManagementClient (name="api-management-svc")를 위한 서킷 브레이커 설정
+      api-management-svc:
+        baseConfig: default
+      # UserApiClient (name="user-svc")를 위한 서킷 브레이커 설정
+      user-svc:
+        baseConfig: default
 
 # 로깅 설정
 logging:
@@ -184,6 +189,7 @@ gemini:
     url: https://generativelanguage.googleapis.com
     key: ${GEMINI_API_KEY}
   model: gemini-1.5-flash
+
 
 ---
 # 개발 환경 설정

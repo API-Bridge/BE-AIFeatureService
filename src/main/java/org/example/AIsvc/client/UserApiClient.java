@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 @FeignClient(name = "user-svc", url = "${services.user.url}", fallback = UserApiClient.UserApiClientFallback.class)
+@org.springframework.context.annotation.Profile("!demo")
 public interface UserApiClient {
 
     // API 명세서에 정의된 `/internal/ai-service/users/{userId}/secret` 경로로 GET 요청 보냄

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import java.util.Collections;
 
 @FeignClient(name = "api-management-svc", url = "${services.api-management.url}", fallback = ApiManagementClient.ApiManagementClientFallback.class)
+@org.springframework.context.annotation.Profile("!demo")
 public interface ApiManagementClient {
 
     // name="api-management-svc": application.yml에 정의된 인스턴스 이름을 사용

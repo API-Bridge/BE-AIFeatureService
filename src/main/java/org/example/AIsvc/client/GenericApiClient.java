@@ -8,6 +8,7 @@ import java.net.URI;
 import java.util.Map;
 
 @FeignClient(name = "generic-api-client")
+@org.springframework.context.annotation.Profile("!demo")
 public interface GenericApiClient {
 
     @PostMapping

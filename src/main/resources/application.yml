@@ -153,7 +153,7 @@ management:
 
 # 서버 설정
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${SERVER_PORT:8085}
   servlet:
     context-path: /api
   tomcat:
@@ -175,13 +175,13 @@ springdoc:
 services:
   # 커스텀API 관리 서비스 설정
   custom-api:
-    url: http://localhost:8081/api # 커스텀API 관리 서비스 주소
+    url: http://localhost:8083/api # 커스텀API 관리 서비스 주소
   # API관리 서비스 설정
   api-management:
     url: http://localhost:8082/api # API관리 서비스 주소
   # 사용자 서비스의 주소
   user:
-    url: http://localhost:8083/api # 사용자 서비스의 로컬 주소
+    url: http://localhost:8081/api # 사용자 서비스의 로컬 주소
 
 # Gemini API 설정
 gemini:

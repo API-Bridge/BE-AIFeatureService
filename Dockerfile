@@ -61,10 +61,10 @@ USER spring:spring
 # 30초마다 actuator health 엔드포인트에 'curl' 요청
 # 명령이 실패하면 컨테이너는 'unhealthy' 상태로 표시
 HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8080/api/actuator/health || exit 1
+    CMD curl -f http://localhost:8085/api/actuator/health || exit 1
 
 # Docker에게 컨테이너가 런타임에 지정된 네트워크 포트를 사용한다고 알림
-EXPOSE 8080
+EXPOSE 8085
 
 # 컨테이너 환경에서 실행하기 위한 최적화된 JVM 옵션을 설정하여 메모리 사용량과 성능을 개선
 ENV JAVA_OPTS="-XX:+UseContainerSupport \

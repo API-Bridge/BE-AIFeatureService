@@ -79,12 +79,18 @@ public class AIController {
     })
     @GetMapping("/execute/{customApiId}")
     public ResponseEntity<BaseResponse<Object>> executeCustomApi(
+            @AuthenticationPrincipal Jwt jwt,
             @Parameter(description = "실행할 커스텀 API의 고유 ID", required = true)
             @PathVariable String customApiId,
             @Parameter(description = "API 실행에 필요한 파라미터 (예: location=서울&category=맛집)", required = true)
-            @RequestParam String query) {
+            @RequestParam String query,
+            @Parameter(description = "AI+ 기능 사용 여부 (프리 사용자의 개인 AI 키로 서머리 생성)", required = false)
+            @RequestParam(value = "ai-plus", defaultValue = "false") boolean aiPlusEnabled) {
 
-        Object result = aiOrchestrationService.executeCustomApi(customApiId, query);
+        // JWT 토큰에서 사용자 ID 추출
+        String userId = jwt != null ? jwt.getSubject() : "anonymous";
+
+        Object result = aiOrchestrationService.executeCustomApi(customApiId, query, userId, aiPlusEnabled);
 
         return ResponseEntity.ok(BaseResponse.success(result));
     }

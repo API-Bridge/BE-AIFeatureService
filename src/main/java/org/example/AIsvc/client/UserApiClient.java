@@ -35,8 +35,8 @@ public interface UserApiClient {
         @Override
         public UserPlanResponse getUserPlan(String userId) {
             log.error("UserApiClient getUserPlan fallback executed for userId: {}", userId);
-            // 플랜 조회 실패 시, 가장 안전한 기본값인 'FREE' 플랜, 비활성 상태로 반환
-            return new UserPlanResponse("FREE", false);
+            // 플랜 조회 실패 시, 가장 안전한 기본값인 'FREE' 플랜으로 반환
+            return new UserPlanResponse("FREE");
         }
     }
 }

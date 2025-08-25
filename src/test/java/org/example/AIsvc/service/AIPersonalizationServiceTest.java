@@ -48,7 +48,7 @@ class AIPersonalizationServiceTest {
         String personalizedSummary = "오늘 날씨는 맑습니다!";
 
         // 1. UserApiClient의 가짜 동작 정의
-        given(userApiClient.getUserPlan(userId)).willReturn(new UserPlanResponse("FREE", true));
+        given(userApiClient.getUserPlan(userId)).willReturn(new UserPlanResponse("FREE"));
         given(userApiClient.getUserSecret(userId)).willReturn(new UserSecretResponse(userArn, "사용자 키"));
 
         // 2. GeminiClient의 가짜 동작 정의
@@ -84,7 +84,7 @@ class AIPersonalizationServiceTest {
         Map<String, Object> fakePersonalizedData = Map.of("insights", personalizedInsights);
 
         // 1. UserApiClient는 플랜 정보만 반환하도록 설정
-        given(userApiClient.getUserPlan(userId)).willReturn(new UserPlanResponse("PRO", true));
+        given(userApiClient.getUserPlan(userId)).willReturn(new UserPlanResponse("PRO"));
 
         // 2. GeminiClient는 인사이트가 포함된 응답을 반환하도록 설정
         GeminiResponse.Part part = new GeminiResponse.Part(fakeLlmResultJson);

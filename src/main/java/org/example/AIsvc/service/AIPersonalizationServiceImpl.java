@@ -52,6 +52,9 @@ public class AIPersonalizationServiceImpl implements AIPersonalizationService {
                     log.info("사용자(ID: {})는 개인화 대상 플랜이 아니므로 건너뜁니다.", userId);
                     return Map.of("data", rawData);
             }
+        } catch (RuntimeException e) {
+            // API 키 설정 오류 등 사용자에게 명시적으로 알려야 할 오류는 다시 던짐
+            throw e;
         } catch (Exception e) {
             log.error("사용자(ID: {}) 개인화 처리 중 오류 발생. 원본 데이터를 반환합니다.", userId, e);
             return convertToMap(rawData);
@@ -63,8 +66,8 @@ public class AIPersonalizationServiceImpl implements AIPersonalizationService {
         // 사용자의 BYOK 키(ARN) 정보를 조회
         UserSecretResponse userSecret = userApiClient.getUserSecret(userId);
         if (userSecret == null || userSecret.getArn() == null) {
-            log.warn("무료 사용자(ID: {})의 BYOK 키를 찾을 수 없어 개인화를 건너뜁니다.", userId);
-            return convertToMap(rawData);
+            log.warn("무료 사용자(ID: {})의 BYOK 키를 찾을 수 없습니다.", userId);
+            throw new RuntimeException("AI+ 기능을 사용하려면 먼저 API 키를 설정해주세요.");
         }
         
         // TODO: 실제로는 ARN으로 AWS Secrets Manager에서 키를 조회해야 합니다. 시스템 키를 임시로 사용

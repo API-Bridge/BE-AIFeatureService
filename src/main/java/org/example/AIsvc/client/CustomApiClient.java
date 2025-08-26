@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 // name="custom-api-svc": 이 클라이언트의 고유 이름 (서킷 브레이커 등에서 사용)
 // url="${services.custom-api.url}": 호출할 `커스텀API 관리 서비스`의 URL을 application.yml에서 가져옴
@@ -29,6 +31,7 @@ public interface CustomApiClient {
     @CircuitBreaker(name = "custom-api-svc")
     CustomApiResponseDto getApiDetails(@PathVariable("customApiId") String customApiId);
 
+
     @Slf4j
     @Component
     class CustomApiClientFallback implements CustomApiClient {
@@ -44,5 +47,6 @@ public interface CustomApiClient {
             // API 상세 정보 조회 실패 시, null을 반환하여 호출한 쪽에서 실패를 인지하고 처리
             return null;
         }
+
     }
 }

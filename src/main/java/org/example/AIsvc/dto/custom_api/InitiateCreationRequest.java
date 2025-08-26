@@ -22,7 +22,4 @@ public class InitiateCreationRequest {
 
     // AI 서비스가 분석한 키워드 목록 (문자열 리스트)
     private List<String> keywords;
-
-    // API 공개 여부
-    private Boolean isPublic;
 }

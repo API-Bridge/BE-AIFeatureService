@@ -18,6 +18,7 @@ import org.example.AIsvc.service.AIOrchestrationService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -94,4 +95,5 @@ public class AIController {
 
         return ResponseEntity.ok(BaseResponse.success(result));
     }
+
 }

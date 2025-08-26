@@ -14,7 +14,4 @@ public class AnalyzeQueryRequest {
     
     @JsonProperty("custom_api_id")
     private String customApiId;
-    
-    @JsonProperty("is_public")
-    private Boolean isPublic;
 }

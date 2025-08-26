@@ -73,7 +73,6 @@ public class AIServiceImpl implements AIService {
                     .originalQuery(request.getQuery()) // 사용자 입력 쿼리
                     .domains(analysisResult.getDetectedDomains()) // 파싱된 도메인 리스트
                     .keywords(analysisResult.getDetectedKeywords()) // 파싱된 키워드 리스트
-                    .isPublic(request.getIsPublic()) // 기존 요청에 있던 isPublic 플래그
                     .build();
 
             // 9. CustomApiClient를 호출하여 다음 서비스로 작업을 전달
@@ -145,4 +144,5 @@ public class AIServiceImpl implements AIService {
                 .map(ApiKeyword::getCode)
                 .collect(Collectors.joining(", "));
     }
+
 }

@@ -3,6 +3,7 @@ package org.example.AIsvc.service;
 import org.example.AIsvc.client.ApiManagementClient;
 import org.example.AIsvc.client.CustomApiClient;
 import org.example.AIsvc.client.GenericApiClient;
+import org.example.AIsvc.service.AIPersonalizationService;
 import org.example.AIsvc.dto.api_management.ApiUrlRequest;
 import org.example.AIsvc.dto.api_management.ApiUrlResponse;
 import org.example.AIsvc.dto.execution.ApiParameterDto;
@@ -34,6 +35,8 @@ class AIOrchestrationServiceTest {
     private GenericApiClient genericApiClient;
     @Mock
     private ApiManagementClient apiManagementClient;
+    @Mock
+    private AIPersonalizationService aiPersonalizationService;
 
     // ## @InjectMocks: 테스트 대상인 AIOrchestrationServiceImpl 객체를 생성하고, 위 Mock 객체들을 주입합니다.
     @InjectMocks
@@ -86,12 +89,56 @@ class AIOrchestrationServiceTest {
         given(genericApiClient.executePost(eq(new URI("http://restaurant.com/api")), any())).willReturn(restaurantResult);
 
         // when - 실제 동작 수행
-        Map<String, Object> finalResult = (Map<String, Object>) aiOrchestrationService.executeCustomApi(customApiId, query);
+        Map<String, Object> finalResult = (Map<String, Object>) aiOrchestrationService.executeCustomApi(customApiId, query, "test-user", false);
 
         // then - 결과 검증
-        // ### 최종 결과에 두 API의 응답이 모두 포함되어 있는지 확인
+        // ### 최종 결과에 data 필드가 있고, 그 안에 두 API의 응답이 모두 포함되어 있는지 확인
         assertThat(finalResult).isNotNull();
-        assertThat(finalResult.get("weather-api")).isEqualTo(weatherResult); // ### 날씨 API 결과 확인
-        assertThat(finalResult.get("restaurant-api")).isEqualTo(restaurantResult); // ### 맛집 API 결과 확인
+        assertThat(finalResult.get("data")).isNotNull();
+        
+        Map<String, Object> data = (Map<String, Object>) finalResult.get("data");
+        assertThat(data.get("weather-api")).isEqualTo(weatherResult); // ### 날씨 API 결과 확인
+        assertThat(data.get("restaurant-api")).isEqualTo(restaurantResult); // ### 맛집 API 결과 확인
+    }
+
+    @Test
+    @DisplayName("성공: AI+ 기능이 켜져있을 때 개인화된 결과를 반환한다")
+    void executeCustomApi_WithAiPlus_Success() throws Exception {
+        // given - 테스트 준비
+        String customApiId = "custom-123";
+        String query = "location=서울";
+        String userId = "auth0|user-123";
+
+        // ### 1. CustomApiClient가 가짜 레시피를 반환하도록 설정
+        given(customApiClient.getApiDetails(customApiId)).willReturn(fakeRecipe);
+
+        // ### 1-1. ApiManagementClient가 API URL 매핑을 반환하도록 설정
+        ApiUrlResponse.ApiUrlDetail weatherApiUrl = new ApiUrlResponse.ApiUrlDetail("weather-api", "http://weather.com/api");
+        ApiUrlResponse.ApiUrlDetail restaurantApiUrl = new ApiUrlResponse.ApiUrlDetail("restaurant-api", "http://restaurant.com/api");
+        ApiUrlResponse apiUrlResponse = new ApiUrlResponse(List.of(weatherApiUrl, restaurantApiUrl));
+        given(apiManagementClient.getApiUrls(any(ApiUrlRequest.class))).willReturn(apiUrlResponse);
+
+        // ### 2. GenericApiClient 호출 설정
+        Map<String, Object> weatherResult = Map.of("temperature", 25);
+        given(genericApiClient.executePost(eq(new URI("http://weather.com/api")), any())).willReturn(weatherResult);
+        
+        Map<String, Object> restaurantResult = Map.of("restaurants", List.of("A식당", "B식당"));
+        given(genericApiClient.executePost(eq(new URI("http://restaurant.com/api")), any())).willReturn(restaurantResult);
+
+        // ### 3. AI 개인화 서비스 mock 설정
+        Map<String, Object> personalizedResult = Map.of(
+            "summary", "서울의 맛집 추천 요약",
+            "data", Map.of("weather-api", weatherResult, "restaurant-api", restaurantResult)
+        );
+        given(aiPersonalizationService.personalize(eq(userId), any())).willReturn(personalizedResult);
+
+        // when - 실제 동작 수행 (AI+ 활성화)
+        Map<String, Object> finalResult = (Map<String, Object>) aiOrchestrationService.executeCustomApi(customApiId, query, userId, true);
+
+        // then - 결과 검증
+        // ### AI+ 결과에 요약이 포함되어 있는지 확인
+        assertThat(finalResult).isNotNull();
+        assertThat(finalResult.get("summary")).isEqualTo("서울의 맛집 추천 요약");
+        assertThat(finalResult.get("data")).isNotNull();
     }
 }

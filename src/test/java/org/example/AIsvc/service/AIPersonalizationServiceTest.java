@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith(MockitoExtension.class)
 class AIPersonalizationServiceTest {
@@ -105,5 +106,31 @@ class AIPersonalizationServiceTest {
         assertThat(result.get("insights")).isEqualTo(personalizedInsights);
         verify(userApiClient).getUserPlan(userId); // ### 플랜 조회는 호출
         verify(userApiClient, never()).getUserSecret(userId); // ### BYOK 키 조회는 절대 호출되지 않아야 함
+    }
+
+    @Test
+    @DisplayName("실패: 무료 사용자가 BYOK 키 없이 AI+를 사용하려 하면 RuntimeException 발생")
+    void personalize_FreeUser_WithoutBYOK_ThrowsException() {
+        // given
+        String userId = "auth0|free-user-no-key";
+        Map<String, Object> rawData = new HashMap<>(Map.of("weather", "맑음"));
+
+        // 1. UserApiClient가 FREE 플랜과 키 없음을 반환하도록 설정
+        given(userApiClient.getUserPlan(userId)).willReturn(new UserPlanResponse("FREE"));
+        given(userApiClient.getUserSecret(userId)).willReturn(new UserSecretResponse(null, null)); // 키가 없음
+
+        // 4. @Value 필드 값 설정
+        ReflectionTestUtils.setField(personalizationService, "systemGeminiApiKey", "system-api-key");
+        ReflectionTestUtils.setField(personalizationService, "model", "gemini-pro");
+        ReflectionTestUtils.setField(personalizationService, "objectMapper", this.objectMapper);
+
+        // when & then
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            personalizationService.personalize(userId, rawData);
+        });
+
+        assertThat(exception.getMessage()).isEqualTo("AI+ 기능을 사용하려면 먼저 API 키를 설정해주세요.");
+        verify(userApiClient).getUserPlan(userId); // 플랜 조회는 호출됨
+        verify(userApiClient).getUserSecret(userId); // BYOK 키 조회도 호출됨
     }
 }

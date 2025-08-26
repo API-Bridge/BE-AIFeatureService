@@ -14,6 +14,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.example.AIsvc.service.AIOrchestrationService; // 오케스트레이션 서비스 import (아직 없음)
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -41,7 +44,7 @@ class AIControllerTest {
     @DisplayName("TDD 1단계: 쿼리 분석 API 엔드포인트 기본 호출 테스트")
     void analyzeQuery_EndpointExists() throws Exception {
         // given
-        AnalyzeQueryRequest request = new AnalyzeQueryRequest("아무 쿼리", null, false);
+        AnalyzeQueryRequest request = new AnalyzeQueryRequest("아무 쿼리", "test-api-id");
 
         // when & then
         mockMvc.perform(post("/ai/analyze-query")
@@ -56,7 +59,7 @@ class AIControllerTest {
     @DisplayName("TDD 2단계: 쿼리 내용이 비어있을 때 400 에러 반환 테스트")
     void analyzeQuery_Fail_WithEmptyQuery() throws Exception {
         // given
-        AnalyzeQueryRequest request = new AnalyzeQueryRequest("", "test-api", false);
+        AnalyzeQueryRequest request = new AnalyzeQueryRequest("", "test-api");
 
         // when & then
         mockMvc.perform(post("/ai/analyze-query")
@@ -80,6 +83,6 @@ class AIControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk());
 
-        verify(aiOrchestrationService).executeCustomApi(customApiId, userQuery);
+        verify(aiOrchestrationService).executeCustomApi(eq(customApiId), eq(userQuery), anyString(), eq(false));
     }
 }

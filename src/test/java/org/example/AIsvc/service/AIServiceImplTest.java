@@ -63,7 +63,7 @@ class AIServiceImplTest {
         ReflectionTestUtils.setField(aiService, "model", "gemini-test-model");
 
         String userId = "auth0|user-123";
-        AnalyzeQueryRequest request = new AnalyzeQueryRequest("서울 날씨와 미세먼지", "seoul-air-weather", false);
+        AnalyzeQueryRequest request = new AnalyzeQueryRequest("서울 날씨와 미세먼지", "seoul-air-weather");
 
         // 0. dev 프로필을 시뮬레이션 (CustomAPI 호출 건너뜀)
         given(environment.acceptsProfiles(any(org.springframework.core.env.Profiles.class))).willReturn(true);
@@ -110,7 +110,7 @@ class AIServiceImplTest {
         ReflectionTestUtils.setField(aiService, "model", "gemini-test-model");
 
         String userId = "auth0|user-123";
-        AnalyzeQueryRequest request = new AnalyzeQueryRequest("서울 날씨와 미세먼지", "seoul-air-weather", false);
+        AnalyzeQueryRequest request = new AnalyzeQueryRequest("서울 날씨와 미세먼지", "seoul-air-weather");
 
         // 0. prod 프로필을 시뮬레이션 (CustomAPI 호출 실행)
         given(environment.acceptsProfiles(any(org.springframework.core.env.Profiles.class))).willReturn(false);

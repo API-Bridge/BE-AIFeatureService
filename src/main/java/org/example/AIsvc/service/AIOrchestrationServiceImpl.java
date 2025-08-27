@@ -6,21 +6,18 @@ import lombok.SneakyThrows; // ## Lombok: 체크 예외(checked exception)를 �
 import lombok.extern.slf4j.Slf4j;
 import org.example.AIsvc.client.CustomApiClient;
 import org.example.AIsvc.client.GenericApiClient;
+import org.example.AIsvc.client.GeminiClient;
+import org.example.AIsvc.dto.gemini.GeminiRequest;
+import org.example.AIsvc.dto.gemini.GeminiResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.example.AIsvc.dto.execution.ApiParameterDto;
 import org.example.AIsvc.dto.execution.CustomApiResponseDto;
 import org.example.AIsvc.dto.execution.ExternalApiInfoDto;
+import org.example.AIsvc.dto.common.BaseResponse;
 import org.springframework.stereotype.Service;
-import org.springframework.web.util.UriComponentsBuilder; // ## URL 쿼리 파라미터를 파싱하기 위한 유틸리티
-import org.example.AIsvc.client.ApiManagementClient;
-import org.example.AIsvc.dto.api_management.ApiUrlRequest;
-import org.example.AIsvc.dto.api_management.ApiUrlResponse;
-import org.example.AIsvc.service.AIPersonalizationService;
-
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.List;
 
 @Slf4j
 @Service
@@ -29,8 +26,14 @@ public class AIOrchestrationServiceImpl implements AIOrchestrationService {
 
     private final CustomApiClient customApiClient;
     private final GenericApiClient genericApiClient;
-    private final ApiManagementClient apiManagementClient;
+    private final GeminiClient geminiClient;
     private final AIPersonalizationService aiPersonalizationService;
+    
+    @Value("${gemini.api.key}")
+    private String geminiApiKey;
+    
+    @Value("${gemini.model}")
+    private String model;
 
     @SneakyThrows
     @Override
@@ -38,49 +41,131 @@ public class AIOrchestrationServiceImpl implements AIOrchestrationService {
         log.info("커스텀 API 실행 시작. API ID: {}, 쿼리: {}, 사용자: {}, AI+: {}", customApiId, query, userId, aiPlusEnabled);
 
         //  1. `커스텀API 서비스`를 호출하여 API 실행 계획('레시피')을 가져옴
-        CustomApiResponseDto recipe = customApiClient.getApiDetails(customApiId);
+        BaseResponse<CustomApiResponseDto> response = customApiClient.getApiDetails(customApiId);
+        
+        // 디버깅: BaseResponse 전체 확인
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper debugMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            debugMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+            String responseJson = debugMapper.writeValueAsString(response);
+            log.info("받아온 BaseResponse (JSON): {}", responseJson);
+        } catch (Exception e) {
+            log.warn("BaseResponse JSON 변환 실패: {}", e.getMessage());
+        }
+        
+        // BaseResponse에서 성공 여부 확인 후 data 추출
+        if (response == null || !response.isSuccess()) {
+            String errorMessage = response != null ? response.getMessage() : "Unknown error occurred";
+            log.error("커스텀 API 정보 조회 실패: {}", errorMessage);
+            throw new IllegalStateException("커스텀 API 정보를 가져올 수 없습니다. API ID: " + customApiId);
+        }
+        
+        CustomApiResponseDto recipe = response.getData();
+        
+        // 디버깅: 받아온 레시피 데이터 확인 (JSON 형태로 출력)
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+            String recipeJson = objectMapper.writeValueAsString(recipe);
+            log.info("받아온 CustomApiResponseDto (JSON): {}", recipeJson);
+        } catch (Exception e) {
+            log.warn("JSON 변환 실패, 기본 toString() 사용: {}", recipe);
+        }
+        
+        if (recipe != null) {
+            log.info("Recipe 기본 정보 - ID: {}, 이름: {}", recipe.getCustomApiId(), recipe.getName());
+            if (recipe.getExternalApiInfoList() != null) {
+                log.info("ExternalApiInfoList 크기: {}", recipe.getExternalApiInfoList().size());
+            } else {
+                log.error("ExternalApiInfoList가 null입니다!");
+            }
+        } else {
+            log.error("CustomApiResponseDto가 null입니다!");
+            throw new IllegalStateException("커스텀 API 정보를 가져올 수 없습니다. API ID: " + customApiId);
+        }
 
-        // 2. 레시피에 있는 모든 API ID들을 추출하여 리스트로 생성
-        List<String> apiIdsToResolve = recipe.getExternalApiInfoList().stream()
-                .map(ExternalApiInfoDto::getApiId)
-                .collect(Collectors.toList());
+        // 2. 실행할 외부 API가 있는지 확인
+        if (recipe.getExternalApiInfoList() == null || recipe.getExternalApiInfoList().isEmpty()) {
+            log.error("실행할 외부 API가 없습니다. customApiId: {}", customApiId);
+            throw new IllegalStateException("실행할 외부 API가 없습니다.");
+        }
+        
+        log.info("{}개의 외부 API 실행을 시작합니다.", recipe.getExternalApiInfoList().size());
 
-        // 3. `API관리 서비스`에 API ID 리스트를 보내 실제 URL이 담긴 Map을 받아옴
-        ApiUrlResponse apiUrlResponse = apiManagementClient.getApiUrls(new ApiUrlRequest(apiIdsToResolve));
-        Map<String, String> apiUrlMap = apiUrlResponse.getApis().stream()
-                .collect(Collectors.toMap(
-                        ApiUrlResponse.ApiUrlDetail::getApiId,
-                        ApiUrlResponse.ApiUrlDetail::getApiUrl
-                ));
-        log.info("{}개의 API URL 조회를 완료했습니다.", apiUrlMap.size());
-
-        // 2. 모든 API 호출 결과를 저장하고, 다음 API의 입력으로 사용될 데이터 저장소(컨텍스트)를 생성
+        // 3. 모든 API 호출 결과를 저장하고, 다음 API의 입력으로 사용될 데이터 저장소(컨텍스트)를 생성
         Map<String, Object> executionContext = new HashMap<>();
 
-        // 최초 사용자 쿼리를 컨텍스트에 추가 (예: "location=서울" -> key: "location", value: "서울")
-        Map<String, String> initialParams = UriComponentsBuilder.newInstance().query(query).build().getQueryParams().toSingleValueMap();
-        executionContext.put("INITIAL_REQUEST", initialParams);
+        // 최초 사용자 자연어 쿼리를 컨텍스트에 추가
+        executionContext.put("INITIAL_QUERY", query);
 
         // 3. 적힌 순서대로 외부 API를 하나씩 호출
         for (ExternalApiInfoDto apiInfo : recipe.getExternalApiInfoList()) {
             log.info("단계 실행: {}", apiInfo.getApiName());
 
-            // 3-1. 이번 단계 API 호출에 필요한 입력 파라미터를 컨텍스트에서 찾아 준비
-            Map<String, Object> requestBody = new HashMap<>();
+            // 3-1. AI에게 현재 API 정보와 컨텍스트를 전달하여 필요한 파라미터를 지능적으로 준비
+            log.info("AI에게 파라미터 준비 요청: {}", apiInfo.getApiName());
+            
+            // AI에게 제공할 자연어 쿼리 분석 프롬프트 구성
+            StringBuilder promptBuilder = new StringBuilder();
+            promptBuilder.append("사용자의 자연어 요청을 분석해서 API 호출에 필요한 파라미터를 추출해주세요.\n\n");
+            
+            promptBuilder.append("호출할 API:\n");
+            promptBuilder.append("- 이름: ").append(apiInfo.getApiName()).append("\n");
+            promptBuilder.append("- 설명: 이 API는 다음 파라미터들을 필요로 합니다.\n");
+            
             for (ApiParameterDto param : apiInfo.getParameters()) {
-                // 파라미터가 'INPUT' 타입일 경우에만 처리
                 if ("INPUT".equals(param.getParamType())) {
-                    if (initialParams.containsKey(param.getParamName())) {
-                        requestBody.put(param.getParamName(), initialParams.get(param.getParamName()));
-                    }
+                    promptBuilder.append("  * ").append(param.getParamName())
+                               .append(": ").append(param.getDescription())
+                               .append(param.isNecessary() ? " (필수)" : " (선택사항)").append("\n");
                 }
             }
+            
+            promptBuilder.append("\n사용자 요청: \"").append(query).append("\"\n");
+            
+            if (executionContext.size() > 1) { // INITIAL_QUERY 외에 다른 결과가 있는지 확인
+                promptBuilder.append("\n이전 단계에서 얻은 데이터:\n");
+                executionContext.entrySet().forEach(entry -> {
+                    if (!"INITIAL_QUERY".equals(entry.getKey())) {
+                        promptBuilder.append("- ").append(entry.getKey()).append(" 결과: ").append(entry.getValue()).append("\n");
+                    }
+                });
+                promptBuilder.append("필요하다면 이전 데이터도 활용하세요.\n");
+            }
+            
+            promptBuilder.append("\n사용자 요청을 분석해서 이 API에 필요한 파라미터 값들을 추출하고, JSON 형태로만 응답해주세요.\n");
+            promptBuilder.append("만약 요청에서 특정 값을 찾을 수 없다면 합리적인 기본값이나 추론된 값을 사용하세요.\n");
+            promptBuilder.append("응답 형식: {\"파라미터명\": \"값\", \"파라미터명2\": \"값2\"}");
+            
+            // AI 요청 생성 및 호출
+            GeminiRequest request = new GeminiRequest(promptBuilder.toString());
+            
+            GeminiResponse aiResponse = geminiClient.generateContent(model, geminiApiKey, request);
+            String aiResponseText = aiResponse.getCandidates().get(0).getContent().getParts().get(0).getText();
+            
+            log.info("AI 파라미터 준비 응답: {}", aiResponseText);
+            
+            // AI 응답을 JSON으로 파싱하여 requestBody 생성
+            Map<String, Object> requestBody = new HashMap<>();
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>> typeRef = 
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {};
+                requestBody = mapper.readValue(aiResponseText.trim(), typeRef);
+                log.info("AI가 준비한 파라미터: {}", requestBody);
+            } catch (Exception e) {
+                log.error("AI 응답 파싱 실패, 빈 파라미터로 API 호출 시도: {}", e.getMessage());
+                // 자연어 쿼리에서는 구조화된 폴백이 불가능하므로 빈 파라미터로 시도
+                // 실제 운영에서는 더 정교한 에러 처리나 재시도 로직이 필요할 수 있음
+                requestBody = new HashMap<>();
+                log.warn("API {}에 빈 파라미터로 요청을 시도합니다.", apiInfo.getApiName());
+            }
 
-            // 3-2. apiInfo에서 직접 URL을 가져오는 대신, 조회해온 apiUrlMap에서 ID에 맞는 URL을 가져옴
-            String targetUrl = apiUrlMap.get(apiInfo.getApiId());
-            if (targetUrl == null) {
-                log.error("{}에 해당하는 URL을 찾을 수 없습니다. 오케스트레이션을 중단합니다.", apiInfo.getApiId());
-                throw new IllegalStateException("URL for API ID " + apiInfo.getApiId() + " not found.");
+            // 3-2. apiInfo에서 직접 endpoint를 사용
+            String targetUrl = apiInfo.getEndpoint();
+            if (targetUrl == null || targetUrl.trim().isEmpty()) {
+                log.error("{}({})에 해당하는 endpoint가 없습니다. 오케스트레이션을 중단합니다.", apiInfo.getApiName(), apiInfo.getApiId());
+                throw new IllegalStateException("Endpoint for API " + apiInfo.getApiName() + " (" + apiInfo.getApiId() + ") not found.");
             }
             URI targetUri = new URI(targetUrl);
             Map<String, Object> apiResult = genericApiClient.executePost(targetUri, requestBody);

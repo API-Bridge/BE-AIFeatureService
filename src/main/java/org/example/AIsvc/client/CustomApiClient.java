@@ -4,21 +4,20 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
 import org.example.AIsvc.dto.custom_api.InitiateCreationRequest;
 import org.example.AIsvc.dto.execution.CustomApiResponseDto;
+import org.example.AIsvc.dto.common.BaseResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.DeleteMapping;
 
 // name="custom-api-svc": 이 클라이언트의 고유 이름 (서킷 브레이커 등에서 사용)
 // url="${services.custom-api.url}": 호출할 `커스텀API 관리 서비스`의 URL을 application.yml에서 가져옴
 @FeignClient(name = "custom-api-svc", url = "${services.custom-api.url}", fallback = CustomApiClient.CustomApiClientFallback.class)
 public interface CustomApiClient {
 
-    @PostMapping("/ai-generate")
+    @PostMapping("/custom-apis/ai-generate")
     @CircuitBreaker(name = "custom-api-svc")
     void initiateCreation(@RequestBody InitiateCreationRequest request);
 
@@ -27,9 +26,9 @@ public interface CustomApiClient {
      * @param customApiId 조회할 커스텀 API의 고유 ID
      * @return 커스텀 API의 상세 정보
      */
-    @GetMapping("/{customApiId}")
+    @GetMapping("/custom-apis/{customApiId}")
     @CircuitBreaker(name = "custom-api-svc")
-    CustomApiResponseDto getApiDetails(@PathVariable("customApiId") String customApiId);
+    BaseResponse<CustomApiResponseDto> getApiDetails(@PathVariable("customApiId") String customApiId);
 
 
     @Slf4j
@@ -42,10 +41,10 @@ public interface CustomApiClient {
         }
 
         @Override
-        public CustomApiResponseDto getApiDetails(String customApiId) {
+        public BaseResponse<CustomApiResponseDto> getApiDetails(String customApiId) {
             log.error("CustomApiClient getApiDetails fallback executed for customApiId: {}", customApiId);
-            // API 상세 정보 조회 실패 시, null을 반환하여 호출한 쪽에서 실패를 인지하고 처리
-            return null;
+            // API 상세 정보 조회 실패 시, 실패 응답을 반환
+            return BaseResponse.error("Custom API service is temporarily unavailable");
         }
 
     }

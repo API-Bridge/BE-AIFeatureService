@@ -30,7 +30,6 @@ public class AIServiceImpl implements AIService {
     private final GeminiClient geminiClient;
     private final LLMResponseParser llmResponseParser;
     private final CustomApiClient customApiClient;
-    private final Environment environment;
     private final ObjectMapper objectMapper;
     private final EventPublisher eventPublisher;
 
@@ -64,8 +63,8 @@ public class AIServiceImpl implements AIService {
         // 6. 주입받은 파서를 사용하여 JSON 응답을 파싱
         AnalysisResultDto analysisResult = llmResponseParser.parse(llmResponseJson);
 
-        // 7. dev 프로필에서는 CustomAPI 호출을 건너뛰고, prod에서는 정상 호출
-        if (!environment.acceptsProfiles(org.springframework.core.env.Profiles.of("dev"))) {
+        // 7. CustomAPI 호출 (모든 환경에서 실행)
+        {
             // 8. CustomApiClient로 보낼 요청 DTO를 생성
             InitiateCreationRequest creationRequest = InitiateCreationRequest.builder()
                     .userId(userId) // 컨트롤러에서 전달받은 userId
@@ -85,8 +84,6 @@ public class AIServiceImpl implements AIService {
             }
             customApiClient.initiateCreation(creationRequest);
             log.info("CustomAPI 관리 서비스로 생성 요청 전달 완료. Custom API ID: {}", request.getCustomApiId());
-        } else {
-            log.info("개발 환경에서는 CustomAPI 호출을 건너뜁니다. Custom API ID: {}", request.getCustomApiId());
         }
 
         // 10. Kafka로 보낼 이벤트 객체를 생성
@@ -118,13 +115,25 @@ public class AIServiceImpl implements AIService {
      * @return LLM에 최적화된 프롬프트 문자열
      */
     private String createPromptForAnalysis(String query) {
-        // 프롬프트 엔지니어링: 더 명확하고 강력하게 JSON 형식만을 요구하도록 수정
+        // 프롬프트 엔지니어링: 페르소나 부여 및 1:1 매핑 강조
         return String.format(
-                "사용자 쿼리를 분석하여 가장 적합한 도메인과 키워드를 JSON 형식으로만 응답해줘. " +
-                        "다른 설명이나 Markdown 코드 블록 없이, 오직 JSON 객체 자체만 반환해야 해. " +
-                        "사용 가능한 도메인 목록: [%s]. " +
-                        "사용 가능한 키워드 목록: [%s]. " +
-                        "쿼리: \"%s\"",
+                "당신은 API 도메인 분석 전문가입니다. 사용자 쿼리를 분석하여 관련된 도메인과 키워드를 찾아 JSON으로 응답해줘.\n\n" +
+                        "🚨 **절대 규칙 (반드시 준수)** 🚨\n" +
+                        "1. ⚠️ domains 배열과 keywords 배열의 길이는 **정확히 같아야 함** ⚠️\n" +
+                        "2. domains[0]의 키워드는 keywords[0]에, domains[1]의 키워드는 keywords[1]에 배치\n" +
+                        "3. 각 도메인마다 해당하는 키워드가 정확히 하나씩 매칭되어야 함\n" +
+                        "4. 마크다운 블록(```json) 사용 금지, 순수 JSON만 반환\n" +
+                        "5. ❗ 배열 길이가 다르면 잘못된 응답입니다 ❗\n\n" +
+                        "=== 올바른 예시 ===\n" +
+                        "입력: \"서울 날씨와 근처 맛집 추천\"\n" +
+                        "✅ 올바름: {\"domains\":[\"weather\",\"restaurant\"], \"keywords\":[\"current_weather\",\"nearby_restaurants\"]} (길이: 2, 2)\n" +
+                        "❌ 잘못됨: {\"domains\":[\"weather\",\"restaurant\"], \"keywords\":[\"current_weather\"]} (길이: 2, 1)\n\n" +
+                        "=== 사용 가능한 옵션 ===\n" +
+                        "도메인: %s\n" +
+                        "키워드: %s\n\n" +
+                        "=== 분석할 쿼리 ===\n" +
+                        "\"%s\"\n\n" +
+                        "⚠️ 주의: domains 배열과 keywords 배열의 개수를 반드시 맞춰서 순수 JSON만 반환하세요:",
                 getAvailableDomains(),
                 getAvailableKeywords(),
                 query

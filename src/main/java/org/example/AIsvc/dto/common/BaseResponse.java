@@ -27,6 +27,9 @@ public class BaseResponse<T> {
     /** API 요청 성공 여부 */
     private boolean success;
     
+    /** 에러 코드 */
+    private String errorCode;
+    
     /** 응답 메시지 */
     private String message;
     

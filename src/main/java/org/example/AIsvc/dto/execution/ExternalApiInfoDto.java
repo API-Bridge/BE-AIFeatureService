@@ -11,6 +11,6 @@ import java.util.List;
 public class ExternalApiInfoDto {
     private String apiId;
     private String apiName;
-    private String apiUrl;
+    private String endpoint;
     private List<ApiParameterDto> parameters;
 }

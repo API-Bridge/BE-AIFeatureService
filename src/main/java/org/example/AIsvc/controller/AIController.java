@@ -18,16 +18,9 @@ import org.example.AIsvc.service.AIOrchestrationService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.DeleteMapping;
-
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.tags.Tag;
-
-
 import org.springframework.web.bind.annotation.RequestHeader;
 
 @Tag(name = "AI Service", description = "AI 기반 API 분석 및 생성 서비스")
@@ -47,10 +40,15 @@ public class AIController {
     })
     @PostMapping("/analyze-query")
     public ResponseEntity<BaseResponse<AnalyzeQueryResponse>> analyzeQuery(
-            @Parameter(description = "사용자 ID", required = true)
-            @RequestHeader("X-User-Id") String userId,
+            @Parameter(description = "사용자 ID", required = false)
+            @RequestHeader(value = "X-User-Id", defaultValue = "test-user") String userId,
             @Parameter(description = "분석할 자연어 쿼리와 커스텀 API 정보를 담은 요청 본문", required = true)
-            @Valid @RequestBody AnalyzeQueryRequest request) {
+            @Valid @RequestBody AnalyzeQueryRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+        
+        // 디버깅용 로그
+        System.out.println("Content-Type: " + httpRequest.getContentType());
+        System.out.println("Request received - Query: " + request.getQuery() + ", API ID: " + request.getCustomApiId());
 
         // 서비스로부터 실제 데이터가 담긴 응답 객체를 받음
         AnalyzeQueryResponse responseData = aiService.analyzeAndInitiateCreation(request, userId);
@@ -70,8 +68,8 @@ public class AIController {
     })
     @GetMapping("/execute/{customApiId}")
     public ResponseEntity<BaseResponse<Object>> executeCustomApi(
-            @Parameter(description = "사용자 ID", required = true)
-            @RequestHeader("X-User-Id") String userId,
+            @Parameter(description = "사용자 ID", required = false)
+            @RequestHeader(value = "X-User-Id", defaultValue = "user-456") String userId,
             @Parameter(description = "실행할 커스텀 API의 고유 ID", required = true)
             @PathVariable String customApiId,
             @Parameter(description = "API 실행에 필요한 파라미터 (예: location=서울&category=맛집)", required = true)
@@ -83,5 +81,21 @@ public class AIController {
 
         return ResponseEntity.ok(BaseResponse.success(result));
     }
+
+    // 폼 데이터 지원 엔드포인트
+    @PostMapping("/analyze-query-form")
+    public ResponseEntity<BaseResponse<AnalyzeQueryResponse>> analyzeQueryForm(
+            @RequestHeader(value = "X-User-Id", defaultValue = "test-user") String userId,
+            @RequestParam("query") String query,
+            @RequestParam(value = "custom_api_id", required = false) String customApiId) {
+        
+        // AnalyzeQueryRequest 객체 생성
+        AnalyzeQueryRequest request = new AnalyzeQueryRequest(query, customApiId);
+        
+        AnalyzeQueryResponse responseData = aiService.analyzeAndInitiateCreation(request, userId);
+        BaseResponse<AnalyzeQueryResponse> response = BaseResponse.success(responseData, "API 생성 요청이 성공적으로 분석되어 전달되었습니다.");
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
 
 }

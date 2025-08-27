@@ -1,14 +1,15 @@
 package org.example.AIsvc.service;
 
-import org.example.AIsvc.client.ApiManagementClient;
 import org.example.AIsvc.client.CustomApiClient;
 import org.example.AIsvc.client.GenericApiClient;
-import org.example.AIsvc.service.AIPersonalizationService;
-import org.example.AIsvc.dto.api_management.ApiUrlRequest;
-import org.example.AIsvc.dto.api_management.ApiUrlResponse;
+import org.example.AIsvc.client.GeminiClient;
 import org.example.AIsvc.dto.execution.ApiParameterDto;
 import org.example.AIsvc.dto.execution.CustomApiResponseDto;
 import org.example.AIsvc.dto.execution.ExternalApiInfoDto;
+import org.example.AIsvc.dto.common.BaseResponse;
+import org.example.AIsvc.dto.gemini.GeminiRequest;
+import org.example.AIsvc.dto.gemini.GeminiResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,7 @@ class AIOrchestrationServiceTest {
     @Mock
     private GenericApiClient genericApiClient;
     @Mock
-    private ApiManagementClient apiManagementClient;
+    private GeminiClient geminiClient;
     @Mock
     private AIPersonalizationService aiPersonalizationService;
 
@@ -48,6 +49,9 @@ class AIOrchestrationServiceTest {
     // ## @BeforeEach: 각 테스트가 실행되기 전에 이 메소드를 실행하여 테스트 환경을 초기화합니다.
     @BeforeEach
     void setUp() {
+        // Gemini API 설정값들을 테스트용으로 주입
+        ReflectionTestUtils.setField(aiOrchestrationService, "geminiApiKey", "test-api-key");
+        ReflectionTestUtils.setField(aiOrchestrationService, "model", "test-model");
         // ### Step 1 (날씨 조회)의 파라미터 정의
         ApiParameterDto weatherInput = new ApiParameterDto("location", "INPUT", "도시 이름", true);
         ApiParameterDto weatherOutput = new ApiParameterDto("temperature", "OUTPUT", "현재 기온", false);
@@ -69,16 +73,26 @@ class AIOrchestrationServiceTest {
     void executeCustomApi_Success() throws Exception {
         // given - 테스트 준비
         String customApiId = "custom-123";
-        String query = "location=서울"; // ### 사용자의 최초 입력 쿼리
+        String query = "서울의 날씨 정보와 함께 맛집도 추천해주세요"; // ### 사용자의 자연어 쿼리
 
-        // ### 1. CustomApiClient가 가짜 레시피를 반환하도록 설정
-        given(customApiClient.getApiDetails(customApiId)).willReturn(fakeRecipe);
+        // ### 1. CustomApiClient가 BaseResponse로 감싼 가짜 레시피를 반환하도록 설정
+        BaseResponse<CustomApiResponseDto> successResponse = BaseResponse.success(fakeRecipe);
+        given(customApiClient.getApiDetails(customApiId)).willReturn(successResponse);
 
-        // ### 1-1. ApiManagementClient가 API URL 매핑을 반환하도록 설정
-        ApiUrlResponse.ApiUrlDetail weatherApiUrl = new ApiUrlResponse.ApiUrlDetail("weather-api", "http://weather.com/api");
-        ApiUrlResponse.ApiUrlDetail restaurantApiUrl = new ApiUrlResponse.ApiUrlDetail("restaurant-api", "http://restaurant.com/api");
-        ApiUrlResponse apiUrlResponse = new ApiUrlResponse(List.of(weatherApiUrl, restaurantApiUrl));
-        given(apiManagementClient.getApiUrls(any(ApiUrlRequest.class))).willReturn(apiUrlResponse);
+        // ### 1-1. GeminiClient AI 파라미터 준비 응답 설정
+        GeminiResponse.Part weatherPart = new GeminiResponse.Part("{\"location\": \"서울\"}");
+        GeminiResponse.Content weatherContent = new GeminiResponse.Content(List.of(weatherPart), "model");
+        GeminiResponse.Candidate weatherCandidate = new GeminiResponse.Candidate(weatherContent);
+        GeminiResponse weatherAiResponse = new GeminiResponse(List.of(weatherCandidate));
+
+        GeminiResponse.Part restaurantPart = new GeminiResponse.Part("{\"area\": \"서울\"}");
+        GeminiResponse.Content restaurantContent = new GeminiResponse.Content(List.of(restaurantPart), "model");
+        GeminiResponse.Candidate restaurantCandidate = new GeminiResponse.Candidate(restaurantContent);
+        GeminiResponse restaurantAiResponse = new GeminiResponse(List.of(restaurantCandidate));
+        
+        given(geminiClient.generateContent(eq("test-model"), eq("test-api-key"), any(GeminiRequest.class)))
+            .willReturn(weatherAiResponse)
+            .willReturn(restaurantAiResponse);
 
         // ### 2. GenericApiClient의 첫 번째 호출(날씨 API)에 대한 가짜 응답 설정
         Map<String, Object> weatherResult = Map.of("temperature", 25);
@@ -106,17 +120,27 @@ class AIOrchestrationServiceTest {
     void executeCustomApi_WithAiPlus_Success() throws Exception {
         // given - 테스트 준비
         String customApiId = "custom-123";
-        String query = "location=서울";
+        String query = "서울의 날씨와 추천 맛집을 알려주세요";
         String userId = "auth0|user-123";
 
-        // ### 1. CustomApiClient가 가짜 레시피를 반환하도록 설정
-        given(customApiClient.getApiDetails(customApiId)).willReturn(fakeRecipe);
+        // ### 1. CustomApiClient가 BaseResponse로 감싼 가짜 레시피를 반환하도록 설정
+        BaseResponse<CustomApiResponseDto> successResponse = BaseResponse.success(fakeRecipe);
+        given(customApiClient.getApiDetails(customApiId)).willReturn(successResponse);
 
-        // ### 1-1. ApiManagementClient가 API URL 매핑을 반환하도록 설정
-        ApiUrlResponse.ApiUrlDetail weatherApiUrl = new ApiUrlResponse.ApiUrlDetail("weather-api", "http://weather.com/api");
-        ApiUrlResponse.ApiUrlDetail restaurantApiUrl = new ApiUrlResponse.ApiUrlDetail("restaurant-api", "http://restaurant.com/api");
-        ApiUrlResponse apiUrlResponse = new ApiUrlResponse(List.of(weatherApiUrl, restaurantApiUrl));
-        given(apiManagementClient.getApiUrls(any(ApiUrlRequest.class))).willReturn(apiUrlResponse);
+        // ### 1-1. GeminiClient AI 파라미터 준비 응답 설정
+        GeminiResponse.Part weatherPart = new GeminiResponse.Part("{\"location\": \"서울\"}");
+        GeminiResponse.Content weatherContent = new GeminiResponse.Content(List.of(weatherPart), "model");
+        GeminiResponse.Candidate weatherCandidate = new GeminiResponse.Candidate(weatherContent);
+        GeminiResponse weatherAiResponse = new GeminiResponse(List.of(weatherCandidate));
+
+        GeminiResponse.Part restaurantPart = new GeminiResponse.Part("{\"area\": \"서울\"}");
+        GeminiResponse.Content restaurantContent = new GeminiResponse.Content(List.of(restaurantPart), "model");
+        GeminiResponse.Candidate restaurantCandidate = new GeminiResponse.Candidate(restaurantContent);
+        GeminiResponse restaurantAiResponse = new GeminiResponse(List.of(restaurantCandidate));
+        
+        given(geminiClient.generateContent(eq("test-model"), eq("test-api-key"), any(GeminiRequest.class)))
+            .willReturn(weatherAiResponse)
+            .willReturn(restaurantAiResponse);
 
         // ### 2. GenericApiClient 호출 설정
         Map<String, Object> weatherResult = Map.of("temperature", 25);

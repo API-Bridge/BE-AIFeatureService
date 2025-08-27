@@ -43,13 +43,13 @@ public class LLMResponseParser {
                     llmResponseDto.getDomains().stream() // 문자열 리스트를 스트림(Stream)으로 변환하여 처리 준비
                             .map(ApiDomain::fromCode) // 각 문자열에 대해 ApiDomain.fromCode 메소드를 호출하여 ENUM으로 매핑
                             .filter(Objects::nonNull) // fromCode 결과가 null인 경우(알 수 없는 도메인)는 걸러냄
-                            .collect(Collectors.toList()); // 변환된 ENUM들을 다시 리스트로 수집
+                            .toList(); // 변환된 ENUM들을 다시 리스트로 수집
 
             List<ApiKeyword> keywords = (llmResponseDto.getKeywords() == null) ? Collections.emptyList() :
                     llmResponseDto.getKeywords().stream()
                             .map(ApiKeyword::fromCode)
                             .filter(Objects::nonNull)
-                            .collect(Collectors.toList());
+                            .toList();
 
             // 3. ENUM을 문자열로 변환
             List<String> domainStrings = domains.stream()
@@ -100,12 +100,18 @@ public class LLMResponseParser {
     @Getter
     private static class LlmResponseDto {
         private List<String> domains;
-        private List<String> domain; // 단수형도 처리
+        private String domain; // 단수형 문자열
         private List<String> keywords;
         
-        // domains가 null이면 domain을 사용하도록 하는 getter 메서드
+        // domains가 null이면 domain을 리스트로 변환해서 반환
         public List<String> getDomains() {
-            return domains != null ? domains : domain;
+            if (domains != null) {
+                return domains;
+            }
+            if (domain != null) {
+                return Collections.singletonList(domain);
+            }
+            return Collections.emptyList();
         }
     }
 }

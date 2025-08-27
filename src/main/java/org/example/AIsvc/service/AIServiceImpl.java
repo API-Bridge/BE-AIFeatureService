@@ -70,9 +70,10 @@ public class AIServiceImpl implements AIService {
             InitiateCreationRequest creationRequest = InitiateCreationRequest.builder()
                     .userId(userId) // 컨트롤러에서 전달받은 userId
                     .customApiId(request.getCustomApiId()) // 기존 요청에 있던 customApiId
-                    .originalQuery(request.getQuery()) // 사용자 입력 쿼리
                     .domains(analysisResult.getDetectedDomains()) // 파싱된 도메인 리스트
                     .keywords(analysisResult.getDetectedKeywords()) // 파싱된 키워드 리스트
+                    .userQuery(request.getQuery()) // 사용자 입력 쿼리 (originalQuery -> userQuery로 변경)
+                    .aiPlusActive(false) // 기본값으로 false 설정
                     .build();
 
             // 9. CustomApiClient를 호출하여 다음 서비스로 작업을 전달

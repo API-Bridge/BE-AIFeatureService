@@ -43,22 +43,22 @@ spring:
         acks: all
         retries: 3
 
-#  # Redis 설정
-#  redis:
-#    host: ${REDIS_HOST:localhost}
-#    port: ${REDIS_PORT:6379}
-#    timeout: 2000ms
-#    lettuce:
-#      pool:
-#        max-active: 8
-#        max-idle: 8
-#        min-idle: 0
+  # Redis 설정
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
 
   # 데이터베이스 설정
   datasource:
-    url: jdbc:mysql://localhost:3306/api_bridge_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/ai_service_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
     username: root
-    password: 1111
+    password: cell4086
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 20
@@ -66,11 +66,6 @@ spring:
       idle-timeout: 300000
       max-lifetime: 1200000
       connection-timeout: 20000
-
-# Auth0 설정
-auth0:
-  issuerUri: ${AUTH0_ISSUER_URI:https://dev-your-domain.auth0.com/}
-  audience: ${AUTH0_AUDIENCE:https://api.dev.yourservice.com}
 
 # AWS 설정
 aws:
@@ -175,7 +170,7 @@ springdoc:
 services:
   # 커스텀API 관리 서비스 설정
   custom-api:
-    url: http://localhost:8083/api # 커스텀API 관리 서비스 주소
+    url: http://localhost:8083/api/v1 # 커스텀API 관리 서비스 주소
   # API관리 서비스 설정
   api-management:
     url: http://localhost:8082/api # API관리 서비스 주소

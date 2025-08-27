@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 @FeignClient(name = "custom-api-svc", url = "${services.custom-api.url}", fallback = CustomApiClient.CustomApiClientFallback.class)
 public interface CustomApiClient {
 
-    @PostMapping("/custom-apis")
+    @PostMapping("/ai-generate")
     @CircuitBreaker(name = "custom-api-svc")
     void initiateCreation(@RequestBody InitiateCreationRequest request);
 
@@ -27,7 +27,7 @@ public interface CustomApiClient {
      * @param customApiId 조회할 커스텀 API의 고유 ID
      * @return 커스텀 API의 상세 정보
      */
-    @GetMapping("/custom-apis/{customApiId}")
+    @GetMapping("/{customApiId}")
     @CircuitBreaker(name = "custom-api-svc")
     CustomApiResponseDto getApiDetails(@PathVariable("customApiId") String customApiId);
 

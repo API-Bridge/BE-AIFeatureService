@@ -12,6 +12,7 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -41,6 +42,7 @@ public class KafkaConfig {
     /**
      * Kafka Producer Factory 빈 설정
      * 메시지를 Kafka 토픽에 전송하기 위한 Producer 구성
+     * 마이크로서비스 간 호환성을 위한 Type Mapping 포함
      * 
      * @return ProducerFactory<String, Object> Kafka Producer Factory
      */
@@ -50,6 +52,13 @@ public class KafkaConfig {
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        
+        // 마이크로서비스 간 이벤트 통신을 위한 Type Mapping 설정
+        // AI 서비스에서 발행하는 이벤트를 다른 서비스에서 수신할 수 있도록 매핑
+        props.put(JsonSerializer.TYPE_MAPPINGS, 
+                "CustomApiCalled:org.example.AIsvc.event.model.CustomApiCalledEvent," +
+                "API_ANALYSIS_COMPLETED:org.example.AIsvc.event.model.ApiAnalysisEvent");
+        
         return new DefaultKafkaProducerFactory<>(props);
     }
 
@@ -67,6 +76,8 @@ public class KafkaConfig {
     /**
      * Kafka Consumer Factory 빈 설정
      * Kafka 토픽의 메시지를 수신하기 위한 Consumer 구성
+     * ErrorHandlingDeserializer를 사용하여 역직렬화 오류 처리
+     * 다른 서비스에서 발행한 이벤트 수신을 위한 Type Mapping 포함
      * 
      * @return ConsumerFactory<String, Object> Kafka Consumer Factory
      */
@@ -75,9 +86,24 @@ public class KafkaConfig {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        
+        // ErrorHandlingDeserializer 사용으로 역직렬화 오류 처리
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+        
+        // 실제 Deserializer 설정
+        props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
+        
+        // JsonDeserializer 설정
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, true);
+        
+        // 다른 마이크로서비스에서 발행한 이벤트를 수신하기 위한 Type Mapping 설정
+        props.put(JsonDeserializer.TYPE_MAPPINGS,
+                "CustomApiCalled:org.example.AIsvc.event.model.CustomApiCalledEvent," +
+                "API_ANALYSIS_COMPLETED:org.example.AIsvc.event.model.ApiAnalysisEvent");
+        
         return new DefaultKafkaConsumerFactory<>(props);
     }
 

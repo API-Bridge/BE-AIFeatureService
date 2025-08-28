@@ -22,6 +22,8 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.example.AIsvc.event.publisher.EventPublisher;
+import org.example.AIsvc.event.model.CustomApiCalledEvent;
 
 @Tag(name = "AI Service", description = "AI 기반 API 분석 및 생성 서비스")
 @RestController
@@ -31,6 +33,7 @@ public class AIController {
 
     private final AIService aiService;
     private final AIOrchestrationService aiOrchestrationService;
+    private final EventPublisher eventPublisher;
 
     @Operation(summary = "자연어 쿼리 분석 및 API 생성 요청", description = "사용자의 자연어 쿼리를 분석하여 API 생성 프로세스를 시작합니다.")
     @ApiResponses({
@@ -76,6 +79,14 @@ public class AIController {
             @RequestParam String query,
             @Parameter(description = "AI+ 기능 및 분석 요구사항 (null이면 비활성화, 값이 있으면 해당 요구사항으로 AI 분석)", required = false)
             @RequestParam(value = "ai-plus", required = false) String aiPlusActive) {
+
+        // 커스텀 API 호출 이벤트 발행
+        CustomApiCalledEvent event = new CustomApiCalledEvent(
+                customApiId,
+                userId,
+                "ai-service"
+        );
+        eventPublisher.publishEvent("custom_api_events", event);
 
         Object result = aiOrchestrationService.executeCustomApi(customApiId, query, userId, aiPlusActive);
 

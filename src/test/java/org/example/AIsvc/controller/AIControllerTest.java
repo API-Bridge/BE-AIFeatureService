@@ -33,8 +33,6 @@ class AIControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
-    private AIService aiService;
 
     @MockBean
     private AIOrchestrationService aiOrchestrationService;

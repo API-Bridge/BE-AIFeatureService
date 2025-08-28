@@ -57,7 +57,9 @@ public class KafkaConfig {
         // AI 서비스에서 발행하는 이벤트를 다른 서비스에서 수신할 수 있도록 매핑
         props.put(JsonSerializer.TYPE_MAPPINGS, 
                 "CustomApiCalled:org.example.AIsvc.event.model.CustomApiCalledEvent," +
-                "API_ANALYSIS_COMPLETED:org.example.AIsvc.event.model.ApiAnalysisEvent");
+                "API_ANALYSIS_COMPLETED:org.example.AIsvc.event.model.ApiAnalysisEvent," +
+                "external-api-called-failed:org.example.AIsvc.event.model.ExternalApiCalledFailedEvent," +
+                "CustomApiCreateFailed:org.example.AIsvc.event.model.CustomApiCreateFailedEvent");
         
         return new DefaultKafkaProducerFactory<>(props);
     }
@@ -97,12 +99,19 @@ public class KafkaConfig {
         
         // JsonDeserializer 설정
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
-        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, true);
+        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false); // Type header 비활성화
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, Object.class);
+        
+        // ErrorHandlingDeserializer 설정
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
         
         // 다른 마이크로서비스에서 발행한 이벤트를 수신하기 위한 Type Mapping 설정
         props.put(JsonDeserializer.TYPE_MAPPINGS,
                 "CustomApiCalled:org.example.AIsvc.event.model.CustomApiCalledEvent," +
-                "API_ANALYSIS_COMPLETED:org.example.AIsvc.event.model.ApiAnalysisEvent");
+                "API_ANALYSIS_COMPLETED:org.example.AIsvc.event.model.ApiAnalysisEvent," +
+                "external-api-called-failed:org.example.AIsvc.event.model.ExternalApiCalledFailedEvent," +
+                "CustomApiCreateFailed:org.example.AIsvc.event.model.CustomApiCreateFailedEvent," +
+                "org.example.customapisvc.event.model.CustomApiCreateFailedEvent:org.example.AIsvc.event.model.CustomApiCreateFailedEvent");
         
         return new DefaultKafkaConsumerFactory<>(props);
     }

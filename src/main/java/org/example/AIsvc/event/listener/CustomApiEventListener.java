@@ -3,6 +3,10 @@ package org.example.AIsvc.event.listener;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.AIsvc.event.model.CustomApiCalledEvent;
+import org.example.AIsvc.event.model.CustomApiCreateFailedEvent;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
@@ -22,6 +26,8 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class CustomApiEventListener {
+
+    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     /**
      * custom_api_events 토픽에서 CustomApiCalled 이벤트를 구독
@@ -44,6 +50,42 @@ public class CustomApiEventListener {
             return;
         }
 
+        // ConsumerRecord로 수신된 경우 수동 역직렬화 시도
+        if (event instanceof ConsumerRecord) {
+            ConsumerRecord<?, ?> consumerRecord = (ConsumerRecord<?, ?>) event;
+            log.info("Received ConsumerRecord - attempting manual deserialization from partition: {}, offset: {}", partition, offset);
+            
+            Object value = consumerRecord.value();
+            log.debug("Raw event value type: {}, value: {}", value.getClass().getSimpleName(), value);
+            
+            // value가 Map 형태로 역직렬화된 경우 처리
+            if (value instanceof java.util.Map) {
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> eventMap = (java.util.Map<String, Object>) value;
+                log.debug("Event map: {}", eventMap);
+                
+                String eventType = (String) eventMap.get("eventType");
+                log.info("Processing event with eventType: {}", eventType);
+                
+                if ("CustomApiCreateFailed".equals(eventType)) {
+                    try {
+                        // Map을 CustomApiCreateFailedEvent로 변환
+                        CustomApiCreateFailedEvent failedEvent = objectMapper.convertValue(eventMap, CustomApiCreateFailedEvent.class);
+                        processCustomApiCreateFailedEvent(failedEvent);
+                        return;
+                    } catch (Exception e) {
+                        log.error("Failed to convert Map to CustomApiCreateFailedEvent: {}", e.getMessage(), e);
+                        log.debug("Event map details: {}", eventMap);
+                    }
+                } else {
+                    log.info("Unhandled eventType: {}", eventType);
+                }
+            } else {
+                log.warn("Unexpected value type in ConsumerRecord: {}", value.getClass().getSimpleName());
+            }
+            return;
+        }
+
         // CustomApiCalledEvent 타입 처리
         if (event instanceof CustomApiCalledEvent) {
             CustomApiCalledEvent customApiEvent = (CustomApiCalledEvent) event;
@@ -59,10 +101,26 @@ public class CustomApiEventListener {
             } catch (Exception e) {
                 log.error("Failed to process CustomApiCalled event: {}", customApiEvent.getEventId(), e);
             }
+        } else if (event instanceof CustomApiCreateFailedEvent) {
+            CustomApiCreateFailedEvent failedEvent = (CustomApiCreateFailedEvent) event;
+            log.info("Received CustomApiCreateFailed event - eventId: {}, userId: {}, name: {}, reason: {}, partition: {}, offset: {}",
+                    failedEvent.getEventId(),
+                    failedEvent.getPayload() != null ? failedEvent.getPayload().getUserId() : "unknown",
+                    failedEvent.getPayload() != null ? failedEvent.getPayload().getName() : "unknown",
+                    failedEvent.getPayload() != null ? failedEvent.getPayload().getFailureReason() : "unknown",
+                    partition,
+                    offset);
+
+            try {
+                processCustomApiCreateFailedEvent(failedEvent);
+            } catch (Exception e) {
+                log.error("Failed to process CustomApiCreateFailed event: {}", failedEvent.getEventId(), e);
+            }
         } else {
             // 다른 타입의 이벤트 처리
-            log.info("Received event of type: {} from partition: {}, offset: {}", 
+            log.info("Received unhandled event of type: {} from partition: {}, offset: {}", 
                     event.getClass().getSimpleName(), partition, offset);
+            log.debug("Event details: {}", event.toString());
         }
     }
 
@@ -95,5 +153,35 @@ public class CustomApiEventListener {
         // - 알림 발송 (사용량 초과 등)
         
         log.info("Successfully processed CustomApiCalled event: {}", event.getEventId());
+    }
+
+    /**
+     * 커스텀 API 생성 실패 이벤트 처리 로직
+     * 
+     * @param event 처리할 실패 이벤트
+     */
+    private void processCustomApiCreateFailedEvent(CustomApiCreateFailedEvent event) {
+        CustomApiCreateFailedEvent.CustomApiCreateFailedPayload payload = event.getPayload();
+        
+        if (payload == null) {
+            log.warn("Event payload is null for eventId: {}", event.getEventId());
+            return;
+        }
+
+        log.warn("Processing custom API creation failure - userId: {}, name: {}, reason: {}, stage: {}, message: {}",
+                payload.getUserId(),
+                payload.getName(),
+                payload.getFailureReason(),
+                payload.getFailureStage(),
+                payload.getErrorMessage());
+
+        // TODO: 실제 비즈니스 로직 구현
+        // 예시:
+        // - 사용자에게 실패 알림 발송
+        // - 실패 통계 업데이트
+        // - 재시도 큐에 추가 (특정 실패 유형의 경우)
+        // - 관리자 알림 (시스템 오류의 경우)
+        
+        log.info("Successfully processed CustomApiCreateFailed event: {}", event.getEventId());
     }
 }

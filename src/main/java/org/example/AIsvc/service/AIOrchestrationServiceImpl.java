@@ -15,6 +15,8 @@ import org.example.AIsvc.dto.execution.CustomApiResponseDto;
 import org.example.AIsvc.dto.execution.ExternalApiInfoDto;
 import org.example.AIsvc.dto.common.BaseResponse;
 import org.springframework.stereotype.Service;
+import org.example.AIsvc.event.publisher.EventPublisher;
+import org.example.AIsvc.event.model.ExternalApiCalledFailedEvent;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,6 +30,7 @@ public class AIOrchestrationServiceImpl implements AIOrchestrationService {
     private final GenericApiClient genericApiClient;
     private final GeminiClient geminiClient;
     private final AIPersonalizationService aiPersonalizationService;
+    private final EventPublisher eventPublisher;
     
     @Value("${gemini.api.key}")
     private String geminiApiKey;
@@ -242,14 +245,36 @@ public class AIOrchestrationServiceImpl implements AIOrchestrationService {
             String httpMethod = apiInfo.getHttpMethod();
             Map<String, Object> apiResult;
             
-            // HTTP 메서드에 따라 적절한 클라이언트 메서드 호출
-            if ("GET".equalsIgnoreCase(httpMethod)) {
-                log.info("GET 메서드로 {}를 호출합니다. 파라미터: {}", targetUrl, requestBody);
-                apiResult = genericApiClient.executeGet(targetUri, requestBody);
-            } else {
-                // 기본값은 POST (하위 호환성)
-                log.info("POST 메서드로 {}를 호출합니다. 파라미터: {}", targetUrl, requestBody);
-                apiResult = genericApiClient.executePost(targetUri, requestBody);
+            // HTTP 메서드에 따라 적절한 클라이언트 메서드 호출 (실패 이벤트 처리 포함)
+            try {
+                if ("GET".equalsIgnoreCase(httpMethod)) {
+                    log.info("GET 메서드로 {}를 호출합니다. 파라미터: {}", targetUrl, requestBody);
+                    apiResult = genericApiClient.executeGet(targetUri, requestBody);
+                } else {
+                    // 기본값은 POST (하위 호환성)
+                    log.info("POST 메서드로 {}를 호출합니다. 파라미터: {}", targetUrl, requestBody);
+                    apiResult = genericApiClient.executePost(targetUri, requestBody);
+                }
+            } catch (Exception e) {
+                // 외부 API 호출 실패 이벤트 발행
+                String errorMessage = e.getMessage();
+                Integer httpStatusCode = extractHttpStatusCode(e);
+                
+                log.error("외부 API 호출 실패: {} - {}", targetUrl, errorMessage);
+                
+                // 외부 API 호출 실패 이벤트 발행
+                ExternalApiCalledFailedEvent failedEvent = new ExternalApiCalledFailedEvent(
+                        customApiId,
+                        userId,
+                        targetUrl,
+                        errorMessage,
+                        httpStatusCode,
+                        "ai-service"
+                );
+                eventPublisher.publishEvent("external_api_events", failedEvent);
+                
+                // 예외를 다시 던지거나 오케스트레이션 중단
+                throw new RuntimeException("외부 API 호출 실패: " + apiInfo.getApiName() + " - " + errorMessage, e);
             }
 
             // 3-3. 호출 결과를 컨텍스트에 저장하여 다음 단계에서 사용
@@ -276,5 +301,38 @@ public class AIOrchestrationServiceImpl implements AIOrchestrationService {
         Map<String, Object> result = new HashMap<>();
         result.put("data", executionContext);
         return result;
+    }
+    
+    /**
+     * 예외에서 HTTP 상태 코드를 추출하는 헬퍼 메서드
+     * Feign 예외나 HTTP 관련 예외에서 상태 코드를 찾아서 반환
+     * 
+     * @param e 발생한 예외
+     * @return HTTP 상태 코드 (없으면 null)
+     */
+    private Integer extractHttpStatusCode(Exception e) {
+        try {
+            // Feign 예외에서 상태 코드 추출 시도
+            if (e.getClass().getSimpleName().contains("FeignException")) {
+                // Reflection을 사용하여 status() 메서드 호출
+                var statusMethod = e.getClass().getMethod("status");
+                return (Integer) statusMethod.invoke(e);
+            }
+            
+            // 다른 HTTP 관련 예외에서 상태 코드 추출 시도
+            String message = e.getMessage();
+            if (message != null && message.contains("status ")) {
+                // "status 404" 형태의 메시지에서 코드 추출
+                String[] parts = message.split("status ");
+                if (parts.length > 1) {
+                    String statusPart = parts[1].split(" ")[0];
+                    return Integer.parseInt(statusPart);
+                }
+            }
+        } catch (Exception ex) {
+            log.debug("상태 코드 추출 실패: {}", ex.getMessage());
+        }
+        
+        return null; // 상태 코드를 찾을 수 없는 경우
     }
 }

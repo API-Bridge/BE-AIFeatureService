@@ -56,13 +56,13 @@ class AIOrchestrationServiceTest {
         ApiParameterDto weatherInput = new ApiParameterDto("location", "INPUT", "도시 이름", true);
         ApiParameterDto weatherOutput = new ApiParameterDto("temperature", "OUTPUT", "현재 기온", false);
         // ### Step 1 (날씨 조회)의 정보 정의
-        ExternalApiInfoDto weatherApiInfo = new ExternalApiInfoDto("weather-api", "날씨 API", "http://weather.com/api", List.of(weatherInput, weatherOutput));
+        ExternalApiInfoDto weatherApiInfo = new ExternalApiInfoDto("weather-api", "날씨 API", "http://weather.com/api", "GET", List.of(weatherInput, weatherOutput));
 
         // ### Step 2 (맛집 추천)의 파라미터 정의
         ApiParameterDto restaurantInput = new ApiParameterDto("area", "INPUT", "지역명", true);
         ApiParameterDto restaurantOutput = new ApiParameterDto("restaurants", "OUTPUT", "맛집 목록", false);
         // ### Step 2 (맛집 추천)의 정보 정의
-        ExternalApiInfoDto restaurantApiInfo = new ExternalApiInfoDto("restaurant-api", "맛집 API", "http://restaurant.com/api", List.of(restaurantInput, restaurantOutput));
+        ExternalApiInfoDto restaurantApiInfo = new ExternalApiInfoDto("restaurant-api", "맛집 API", "http://restaurant.com/api", "POST", List.of(restaurantInput, restaurantOutput));
         
         // ### 최종 '레시피' (CustomApiResponseDto)를 생성합니다.
         fakeRecipe = new CustomApiResponseDto("custom-123", "user-abc", "날씨 기반 맛집 추천", "", List.of(weatherApiInfo, restaurantApiInfo), null, null);
@@ -94,16 +94,16 @@ class AIOrchestrationServiceTest {
             .willReturn(weatherAiResponse)
             .willReturn(restaurantAiResponse);
 
-        // ### 2. GenericApiClient의 첫 번째 호출(날씨 API)에 대한 가짜 응답 설정
+        // ### 2. GenericApiClient의 첫 번째 호출(날씨 API - GET)에 대한 가짜 응답 설정
         Map<String, Object> weatherResult = Map.of("temperature", 25);
-        given(genericApiClient.executePost(eq(new URI("http://weather.com/api")), any())).willReturn(weatherResult);
+        given(genericApiClient.executeGet(eq(new URI("http://weather.com/api")), any())).willReturn(weatherResult);
         
-        // ### 3. GenericApiClient의 두 번째 호출(맛집 API)에 대한 가짜 응답 설정
+        // ### 3. GenericApiClient의 두 번째 호출(맛집 API - POST)에 대한 가짜 응답 설정
         Map<String, Object> restaurantResult = Map.of("restaurants", List.of("A식당", "B식당"));
         given(genericApiClient.executePost(eq(new URI("http://restaurant.com/api")), any())).willReturn(restaurantResult);
 
         // when - 실제 동작 수행
-        Map<String, Object> finalResult = (Map<String, Object>) aiOrchestrationService.executeCustomApi(customApiId, query, "test-user", false);
+        Map<String, Object> finalResult = (Map<String, Object>) aiOrchestrationService.executeCustomApi(customApiId, query, "test-user", null);
 
         // then - 결과 검증
         // ### 최종 결과에 data 필드가 있고, 그 안에 두 API의 응답이 모두 포함되어 있는지 확인
@@ -144,7 +144,7 @@ class AIOrchestrationServiceTest {
 
         // ### 2. GenericApiClient 호출 설정
         Map<String, Object> weatherResult = Map.of("temperature", 25);
-        given(genericApiClient.executePost(eq(new URI("http://weather.com/api")), any())).willReturn(weatherResult);
+        given(genericApiClient.executeGet(eq(new URI("http://weather.com/api")), any())).willReturn(weatherResult);
         
         Map<String, Object> restaurantResult = Map.of("restaurants", List.of("A식당", "B식당"));
         given(genericApiClient.executePost(eq(new URI("http://restaurant.com/api")), any())).willReturn(restaurantResult);
@@ -154,10 +154,10 @@ class AIOrchestrationServiceTest {
             "summary", "서울의 맛집 추천 요약",
             "data", Map.of("weather-api", weatherResult, "restaurant-api", restaurantResult)
         );
-        given(aiPersonalizationService.personalize(eq(userId), any())).willReturn(personalizedResult);
+        given(aiPersonalizationService.personalize(eq(userId), any(), eq("트렌드 분석해줘"))).willReturn(personalizedResult);
 
         // when - 실제 동작 수행 (AI+ 활성화)
-        Map<String, Object> finalResult = (Map<String, Object>) aiOrchestrationService.executeCustomApi(customApiId, query, userId, true);
+        Map<String, Object> finalResult = (Map<String, Object>) aiOrchestrationService.executeCustomApi(customApiId, query, userId, "트렌드 분석해줘");
 
         // then - 결과 검증
         // ### AI+ 결과에 요약이 포함되어 있는지 확인

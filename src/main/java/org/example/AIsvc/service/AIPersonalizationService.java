@@ -8,7 +8,8 @@ public interface AIPersonalizationService {
      * 사용자의 구독 플랜에 따라 원본 데이터를 AI로 가공
      * @param userId 요청을 보낸 사용자의 ID
      * @param rawData 외부 API 호출을 통해 조합된 원본 데이터
+     * @param analysisQuery 사용자가 요청한 분석 방향 (자연어)
      * @return AI에 의해 개인화된 데이터가 포함된 Map 객체
      */
-    Map<String, Object> personalize(String userId, Object rawData);
+    Map<String, Object> personalize(String userId, Object rawData, String analysisQuery);
 }

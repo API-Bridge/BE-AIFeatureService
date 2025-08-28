@@ -66,7 +66,7 @@ class AIPersonalizationServiceTest {
         ReflectionTestUtils.setField(personalizationService, "objectMapper", this.objectMapper);
 
         // when
-        Map<String, Object> result = personalizationService.personalize(userId, rawData);
+        Map<String, Object> result = personalizationService.personalize(userId, rawData, "날씨 트렌드 분석해줘");
 
         // then
         assertThat(result.get("summary")).isEqualTo(personalizedSummary);
@@ -100,7 +100,7 @@ class AIPersonalizationServiceTest {
         ReflectionTestUtils.setField(personalizationService, "objectMapper", this.objectMapper);
 
         // when
-        Map<String, Object> result = personalizationService.personalize(userId, rawData);
+        Map<String, Object> result = personalizationService.personalize(userId, rawData, "날씨 트렌드 분석해줘");
 
         // then
         assertThat(result.get("insights")).isEqualTo(personalizedInsights);
@@ -126,7 +126,7 @@ class AIPersonalizationServiceTest {
 
         // when & then
         RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-            personalizationService.personalize(userId, rawData);
+            personalizationService.personalize(userId, rawData, "분석 요구사항");
         });
 
         assertThat(exception.getMessage()).isEqualTo("AI+ 기능을 사용하려면 먼저 API 키를 설정해주세요.");

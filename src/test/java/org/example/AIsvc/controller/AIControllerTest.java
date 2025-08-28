@@ -83,6 +83,6 @@ class AIControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk());
 
-        verify(aiOrchestrationService).executeCustomApi(eq(customApiId), eq(userQuery), anyString(), eq(false));
+        verify(aiOrchestrationService).executeCustomApi(eq(customApiId), eq(userQuery), anyString(), eq(null));
     }
 }

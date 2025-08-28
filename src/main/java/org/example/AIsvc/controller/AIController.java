@@ -74,10 +74,10 @@ public class AIController {
             @PathVariable String customApiId,
             @Parameter(description = "API 실행에 필요한 파라미터 (예: location=서울&category=맛집)", required = true)
             @RequestParam String query,
-            @Parameter(description = "AI+ 기능 사용 여부 (프리 사용자의 개인 AI 키로 서머리 생성)", required = false)
-            @RequestParam(value = "ai-plus", defaultValue = "false") boolean aiPlusEnabled) {
+            @Parameter(description = "AI+ 기능 및 분석 요구사항 (null이면 비활성화, 값이 있으면 해당 요구사항으로 AI 분석)", required = false)
+            @RequestParam(value = "ai-plus", required = false) String aiPlusActive) {
 
-        Object result = aiOrchestrationService.executeCustomApi(customApiId, query, userId, aiPlusEnabled);
+        Object result = aiOrchestrationService.executeCustomApi(customApiId, query, userId, aiPlusActive);
 
         return ResponseEntity.ok(BaseResponse.success(result));
     }

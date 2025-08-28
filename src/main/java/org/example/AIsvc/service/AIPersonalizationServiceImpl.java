@@ -34,7 +34,7 @@ public class AIPersonalizationServiceImpl implements AIPersonalizationService {
     private String model;
 
     @Override
-    public Map<String, Object> personalize(String userId, Object rawData) {
+    public Map<String, Object> personalize(String userId, Object rawData, String analysisQuery) {
         try {
             // 1. 사용자 서비스에 문의하여 사용자의 구독 플랜 정보를 가져옴
             UserPlanResponse planResponse = userApiClient.getUserPlan(userId);
@@ -44,9 +44,9 @@ public class AIPersonalizationServiceImpl implements AIPersonalizationService {
             // 2. 구독 플랜에 따라 분기
             switch (planName) {
                 case "FREE":
-                    return personalizeForFreeUser(userId, rawData);
+                    return personalizeForFreeUser(userId, rawData, analysisQuery);
                 case "PRO":
-                    return personalizeForProUser(userId, rawData);
+                    return personalizeForProUser(userId, rawData, analysisQuery);
                 default:
                     // FREE나 PRO가 아닌 다른 플랜의 경우, 개인화 없이 원본 데이터를 반환
                     log.info("사용자(ID: {})는 개인화 대상 플랜이 아니므로 건너뜁니다.", userId);
@@ -62,7 +62,7 @@ public class AIPersonalizationServiceImpl implements AIPersonalizationService {
     }
 
     // 무료 사용자를 위한 개인화 로직을 처리하는 private 메소드
-    private Map<String, Object> personalizeForFreeUser(String userId, Object rawData) throws JsonProcessingException {
+    private Map<String, Object> personalizeForFreeUser(String userId, Object rawData, String analysisQuery) throws JsonProcessingException {
         // 사용자의 BYOK 키(ARN) 정보를 조회
         UserSecretResponse userSecret = userApiClient.getUserSecret(userId);
         if (userSecret == null || userSecret.getArn() == null) {
@@ -74,8 +74,10 @@ public class AIPersonalizationServiceImpl implements AIPersonalizationService {
         String apiKey = systemGeminiApiKey;
         log.info("무료 사용자(ID: {}) BYOK(ARN: {})를 사용하여 개인화 시작", userId, userSecret.getArn());
 
-        // LLM에 간단한 요약을 요청하는 프롬프트를 생성
-        String prompt = String.format("다음 JSON 데이터를 보고, 사용자에게 친절한 요약 문장을 한 문장으로 만들어줘. 데이터: %s", objectMapper.writeValueAsString(rawData));
+        // 사용자 분석 요구사항을 반영한 프롬프트 생성
+        String basePrompt = String.format("다음 JSON 데이터를 분석해서 사용자 요구사항에 맞는 요약을 만들어줘.\n\n사용자 요구사항: %s\n\n데이터: %s", 
+                analysisQuery, objectMapper.writeValueAsString(rawData));
+        String prompt = basePrompt;
         
         // LLM을 호출하고, 응답을 받아옴
         String summary = callGemini(apiKey, prompt);
@@ -88,16 +90,16 @@ public class AIPersonalizationServiceImpl implements AIPersonalizationService {
     }
 
     // 프로 사용자를 위한 개인화 로직을 처리하는 private 메소드
-    private Map<String, Object> personalizeForProUser(String userId, Object rawData) throws Exception {
+    private Map<String, Object> personalizeForProUser(String userId, Object rawData, String analysisQuery) throws Exception {
         log.info("프로 사용자(ID: {}) 시스템 AI를 사용하여 개인화 시작", userId);
         
-        // LLM에 더 깊이 있는 분석(인사이트)을 요청하는 프롬프트를 생성
+        // 사용자 분석 요구사항을 반영한 고급 분석 프롬프트 생성
         String rawDataJson = objectMapper.writeValueAsString(rawData);
         String prompt = String.format(
-                "다음 JSON 데이터를 분석해서, 아래 형식에 맞춰 응답해줘. 다른 설명 없이 JSON 객체만 반환해야 해." +
-                        "{\"summary\": \"데이터에 대한 간단한 요약\", \"insights\": [\"전문가 관점의 흥미로운 인사이트 1\", \"인사이트 2\"], \"predictions\": \"데이터 기반의 간단한 예측\"}" +
+                "다음 JSON 데이터를 '%s' 관점에서 분석해서, 아래 형식에 맞춰 응답해줘. 다른 설명 없이 JSON 객체만 반환해야 해." +
+                        "{\"summary\": \"사용자 요구사항에 맞는 요약\", \"insights\": [\"요구사항 관점의 전문가 인사이트 1\", \"인사이트 2\"], \"predictions\": \"요구사항 기반의 예측\"}" +
                         "데이터: %s",
-                rawDataJson
+                analysisQuery, rawDataJson
         );
         // 프로 사용자는 시스템의 API 키를 사용하여 LLM을 호출
         String llmResultJson = callGemini(systemGeminiApiKey, prompt);

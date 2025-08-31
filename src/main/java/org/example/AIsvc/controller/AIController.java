@@ -24,6 +24,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.example.AIsvc.event.publisher.EventPublisher;
 import org.example.AIsvc.event.model.CustomApiCalledEvent;
+import org.example.AIsvc.client.UserApiClient;
 
 @Tag(name = "AI Service", description = "AI 기반 API 분석 및 생성 서비스")
 @RestController
@@ -34,6 +35,7 @@ public class AIController {
     private final AIService aiService;
     private final AIOrchestrationService aiOrchestrationService;
     private final EventPublisher eventPublisher;
+    private final UserApiClient userApiClient;
 
     @Operation(summary = "자연어 쿼리 분석 및 API 생성 요청", description = "사용자의 자연어 쿼리를 분석하여 API 생성 프로세스를 시작합니다.")
     @ApiResponses({
@@ -106,6 +108,76 @@ public class AIController {
         AnalyzeQueryResponse responseData = aiService.analyzeAndInitiateCreation(request, userId);
         BaseResponse<AnalyzeQueryResponse> response = BaseResponse.success(responseData, "API 생성 요청이 성공적으로 분석되어 전달되었습니다.");
         return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+
+
+    // ====================== BYOK 테스트용 엔드포인트 =====================
+    @Operation(summary = "사용자 BYOK (API 키) 조회 테스트", description = "지정된 사용자 ID로 User 서비스에서 BYOK 정보를 조회하는 테스트 엔드포인트입니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "BYOK 조회 성공"),
+            @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음"),
+            @ApiResponse(responseCode = "500", description = "User 서비스 호출 실패")
+    })
+    @GetMapping("/test/byok")
+    public ResponseEntity<BaseResponse<Object>> testGetUserByok(
+            @Parameter(description = "조회할 사용자 ID", required = true)
+            @RequestParam String userId) {
+        
+        try {
+            // UserApiClient를 통해 사용자의 BYOK 정보 조회
+            org.example.AIsvc.dto.user.UserSecretResponse userSecret = 
+                userApiClient.getUserSecret(userId);
+            
+            if (userSecret != null) {
+                // 성공적으로 조회된 경우
+                java.util.Map<String, Object> result = new java.util.HashMap<>();
+                result.put("userId", userId);
+                result.put("secretValue", userSecret.getSecretValue());
+                result.put("arnId", userSecret.getArnId());
+                result.put("description", userSecret.getDescription());
+                result.put("secretName", userSecret.getSecretName());
+                result.put("hasApiKey", userSecret.getSecretValue() != null && !userSecret.getSecretValue().isEmpty());
+                result.put("status", "SUCCESS");
+                result.put("message", "BYOK 정보 조회 성공");
+                
+                // 기존 필드도 호환성을 위해 추가
+                result.put("arn", userSecret.getArn());
+                result.put("arnDescription", userSecret.getArnDescription());
+                
+                return ResponseEntity.ok(BaseResponse.success(result));
+            } else {
+                // Fallback이 실행되거나 서비스 호출 실패
+                java.util.Map<String, Object> result = new java.util.HashMap<>();
+                result.put("userId", userId);
+                result.put("secretValue", null);
+                result.put("arnId", null);
+                result.put("description", null);
+                result.put("secretName", null);
+                result.put("hasApiKey", false);
+                result.put("status", "FALLBACK");
+                result.put("message", "User 서비스 호출 실패 또는 Fallback 실행됨");
+                
+                // 기존 필드도 호환성을 위해 추가
+                result.put("arn", null);
+                result.put("arnDescription", null);
+                
+                return ResponseEntity.ok(BaseResponse.success(result));
+            }
+            
+        } catch (Exception e) {
+            // 예외 발생 시
+            java.util.Map<String, Object> result = new java.util.HashMap<>();
+            result.put("userId", userId);
+            result.put("error", e.getClass().getSimpleName());
+            result.put("errorMessage", e.getMessage());
+            result.put("status", "ERROR");
+            result.put("message", "BYOK 조회 중 오류 발생");
+            
+            BaseResponse<Object> errorResponse = BaseResponse.error("BYOK 조회 실패: " + e.getMessage());
+            errorResponse.setData(result);
+            return ResponseEntity.status(500).body(errorResponse);
+        }
     }
 
 

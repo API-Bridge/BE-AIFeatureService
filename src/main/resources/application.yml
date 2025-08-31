@@ -176,7 +176,7 @@ services:
     url: http://localhost:8082/api # API관리 서비스 주소
   # 사용자 서비스의 주소
   user:
-    url: http://localhost:8081/api # 사용자 서비스의 로컬 주소
+    url: http://localhost:8081 # 사용자 서비스의 로컬 주소
 
 # Gemini API 설정
 gemini:

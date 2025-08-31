@@ -65,13 +65,13 @@ public class AIPersonalizationServiceImpl implements AIPersonalizationService {
     private Map<String, Object> personalizeForFreeUser(String userId, Object rawData, String analysisQuery) throws JsonProcessingException {
         // 사용자의 BYOK 키(ARN) 정보를 조회
         UserSecretResponse userSecret = userApiClient.getUserSecret(userId);
-        if (userSecret == null || userSecret.getArn() == null) {
+        if (userSecret == null || userSecret.getSecretValue() == null || userSecret.getSecretValue().isEmpty()) {
             log.warn("무료 사용자(ID: {})의 BYOK 키를 찾을 수 없습니다.", userId);
             throw new RuntimeException("AI+ 기능을 사용하려면 먼저 API 키를 설정해주세요.");
         }
         
-        // TODO: 실제로는 ARN으로 AWS Secrets Manager에서 키를 조회해야 합니다. 시스템 키를 임시로 사용
-        String apiKey = systemGeminiApiKey;
+        // 사용자의 실제 API 키 사용 (User 서비스에서 복호화된 값 제공)
+        String apiKey = userSecret.getSecretValue();
         log.info("무료 사용자(ID: {}) BYOK(ARN: {})를 사용하여 개인화 시작", userId, userSecret.getArn());
 
         // 사용자 분석 요구사항을 반영한 프롬프트 생성

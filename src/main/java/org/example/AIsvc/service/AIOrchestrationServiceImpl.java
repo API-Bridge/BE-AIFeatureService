@@ -16,7 +16,7 @@ import org.example.AIsvc.dto.execution.ExternalApiInfoDto;
 import org.example.AIsvc.dto.common.BaseResponse;
 import org.springframework.stereotype.Service;
 import org.example.AIsvc.event.publisher.EventPublisher;
-import org.example.AIsvc.event.model.ExternalApiCalledFailedEvent;
+import org.example.AIsvc.event.model.ExternalApiCallFailedEvent;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -263,13 +263,17 @@ public class AIOrchestrationServiceImpl implements AIOrchestrationService {
                 log.error("외부 API 호출 실패: {} - {}", targetUrl, errorMessage);
                 
                 // 외부 API 호출 실패 이벤트 발행
-                ExternalApiCalledFailedEvent failedEvent = new ExternalApiCalledFailedEvent(
-                        customApiId,
-                        userId,
-                        targetUrl,
-                        errorMessage,
-                        httpStatusCode,
-                        "ai-service"
+                ExternalApiCallFailedEvent failedEvent = new ExternalApiCallFailedEvent(
+                        apiInfo.getApiId(),                  // apiId
+                        apiInfo.getApiName(),                 // apiName
+                        targetUrl,                            // apiUrl
+                        "GET",                                // httpMethod (기본값, 실제 메소드로 수정 필요)
+                        httpStatusCode,                       // statusCode
+                        errorMessage,                         // errorMessage
+                        "EXTERNAL_API_ERROR",                 // errorType
+                        null,                                 // responseTime (측정 구현 필요)
+                        java.util.UUID.randomUUID().toString(), // requestId
+                        "ai-service"                          // calledBy
                 );
                 eventPublisher.publishEvent("external_api_events", failedEvent);
                 

@@ -58,7 +58,7 @@ public class KafkaConfig {
         props.put(JsonSerializer.TYPE_MAPPINGS, 
                 "CustomApiCalled:org.example.AIsvc.event.model.CustomApiCalledEvent," +
                 "API_ANALYSIS_COMPLETED:org.example.AIsvc.event.model.ApiAnalysisEvent," +
-                "external-api-called-failed:org.example.AIsvc.event.model.ExternalApiCalledFailedEvent," +
+                "external-api-call-failed:org.example.AIsvc.event.model.ExternalApiCallFailedEvent," +
                 "CustomApiCreateFailed:org.example.AIsvc.event.model.CustomApiCreateFailedEvent");
         
         return new DefaultKafkaProducerFactory<>(props);
@@ -109,7 +109,7 @@ public class KafkaConfig {
         props.put(JsonDeserializer.TYPE_MAPPINGS,
                 "CustomApiCalled:org.example.AIsvc.event.model.CustomApiCalledEvent," +
                 "API_ANALYSIS_COMPLETED:org.example.AIsvc.event.model.ApiAnalysisEvent," +
-                "external-api-called-failed:org.example.AIsvc.event.model.ExternalApiCalledFailedEvent," +
+                "external-api-call-failed:org.example.AIsvc.event.model.ExternalApiCallFailedEvent," +
                 "CustomApiCreateFailed:org.example.AIsvc.event.model.CustomApiCreateFailedEvent," +
                 "org.example.customapisvc.event.model.CustomApiCreateFailedEvent:org.example.AIsvc.event.model.CustomApiCreateFailedEvent");
         

@@ -24,7 +24,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.example.AIsvc.event.publisher.EventPublisher;
 import org.example.AIsvc.event.model.CustomApiCalledEvent;
+import org.example.AIsvc.event.model.ExternalApiCallFailedEvent;
 import org.example.AIsvc.client.UserApiClient;
+import java.time.LocalDateTime;
 
 @Tag(name = "AI Service", description = "AI 기반 API 분석 및 생성 서비스")
 @RestController
@@ -98,7 +100,7 @@ public class AIController {
     // 폼 데이터 지원 엔드포인트
     @PostMapping("/analyze-query-form")
     public ResponseEntity<BaseResponse<AnalyzeQueryResponse>> analyzeQueryForm(
-            @RequestHeader(value = "X-User-Id", defaultValue = "test-user") String userId,
+            @RequestHeader(value = "X-User-Id") String userId,
             @RequestParam("query") String query,
             @RequestParam(value = "custom_api_id", required = false) String customApiId) {
         
@@ -176,6 +178,85 @@ public class AIController {
             
             BaseResponse<Object> errorResponse = BaseResponse.error("BYOK 조회 실패: " + e.getMessage());
             errorResponse.setData(result);
+            return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+
+    // ====================== ExternalApiCallFailedEvent 테스트용 엔드포인트 =====================
+    @Operation(summary = "외부 API 호출 실패 이벤트 발행 테스트", description = "ExternalApiCallFailedEvent 이벤트를 발행하는 테스트 엔드포인트입니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "이벤트 발행 성공"),
+            @ApiResponse(responseCode = "500", description = "이벤트 발행 실패")
+    })
+    @PostMapping("/test/external-api-failed")
+    public ResponseEntity<BaseResponse<Object>> testExternalApiCallFailedEvent(
+            @Parameter(description = "API ID", required = false)
+            @RequestParam(value = "apiId", defaultValue = "test-api-001") String apiId,
+            @Parameter(description = "API 이름", required = false)  
+            @RequestParam(value = "apiName", defaultValue = "Test API") String apiName,
+            @Parameter(description = "API URL", required = false)
+            @RequestParam(value = "apiUrl", defaultValue = "https://api.example.com/test") String apiUrl,
+            @Parameter(description = "HTTP 메소드", required = false)
+            @RequestParam(value = "httpMethod", defaultValue = "GET") String httpMethod,
+            @Parameter(description = "HTTP 상태 코드", required = false)
+            @RequestParam(value = "statusCode", defaultValue = "500") Integer statusCode,
+            @Parameter(description = "에러 메시지", required = false)
+            @RequestParam(value = "errorMessage", defaultValue = "API key is invalid or missing") String errorMessage,
+            @Parameter(description = "에러 타입", required = false)
+            @RequestParam(value = "errorType", defaultValue = "AUTHENTICATION_ERROR") String errorType,
+            @Parameter(description = "응답 시간 (ms)", required = false)
+            @RequestParam(value = "responseTime", required = false) Integer responseTime,
+            @Parameter(description = "호출자", required = false)
+            @RequestParam(value = "calledBy", defaultValue = "ai-service-test") String calledBy) {
+        
+        try {
+            // ExternalApiCallFailedEvent 생성 및 발행
+            ExternalApiCallFailedEvent failedEvent = new ExternalApiCallFailedEvent(
+                    apiId,                                      // apiId
+                    apiName,                                    // apiName
+                    apiUrl,                                     // apiUrl
+                    httpMethod,                                 // httpMethod
+                    statusCode,                                 // statusCode
+                    errorMessage,                               // errorMessage
+                    errorType,                                  // errorType
+                    responseTime,                               // responseTime
+                    java.util.UUID.randomUUID().toString(),    // requestId
+                    calledBy                                    // calledBy
+            );
+            
+            // 이벤트 발행
+            eventPublisher.publishEvent("external_api_events", failedEvent);
+            
+            // 응답 데이터 생성
+            java.util.Map<String, Object> result = new java.util.HashMap<>();
+            result.put("message", "ExternalApiCallFailedEvent 발행 완료");
+            result.put("eventType", "external-api-call-failed");
+            result.put("eventId", failedEvent.getEventId() != null ? failedEvent.getEventId() : "null");
+            result.put("traceId", failedEvent.getTraceId() != null ? failedEvent.getTraceId() : "null");
+            result.put("timestamp", failedEvent.getTimestamp() != null ? failedEvent.getTimestamp() : LocalDateTime.now());
+            result.put("eventData", java.util.Map.of(
+                "apiId", apiId,
+                "apiName", apiName,
+                "apiUrl", apiUrl,
+                "httpMethod", httpMethod,
+                "statusCode", statusCode,
+                "errorMessage", errorMessage,
+                "errorType", errorType,
+                "responseTime", responseTime != null ? responseTime : 0,
+                "calledBy", calledBy,
+                "failedAt", LocalDateTime.now()
+            ));
+            
+            return ResponseEntity.ok(BaseResponse.success(result));
+            
+        } catch (Exception e) {
+            java.util.Map<String, Object> errorResult = new java.util.HashMap<>();
+            errorResult.put("error", e.getClass().getSimpleName());
+            errorResult.put("errorMessage", e.getMessage());
+            errorResult.put("message", "ExternalApiCallFailedEvent 발행 실패");
+            
+            BaseResponse<Object> errorResponse = BaseResponse.error("이벤트 발행 실패: " + e.getMessage());
+            errorResponse.setData(errorResult);
             return ResponseEntity.status(500).body(errorResponse);
         }
     }

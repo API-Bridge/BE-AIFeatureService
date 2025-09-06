@@ -229,3 +229,34 @@ management:
   endpoint:
     health:
       show-details: never
+
+---
+# Docker 환경 설정
+spring:
+  config:
+    activate:
+      on-profile: docker
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+  datasource:
+    url: ${DB_URL:jdbc:mysql://mysql:3306/ai_service_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:password}
+
+# 외부 서비스 연결 설정 (Docker 환경)
+services:
+  custom-api:
+    url: ${SERVICES_CUSTOM_API_URL:http://custom-api-service:8083/api}
+  api-management:
+    url: ${SERVICES_API_MANAGEMENT_URL:http://api-management-service:8082/api}
+  user:
+    url: ${SERVICES_USER_URL:http://user-service:8081}
+
+logging:
+  level:
+    org.example.aisvc: INFO
+    org.springframework.security: WARN

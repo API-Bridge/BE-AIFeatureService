@@ -9,7 +9,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ApiParameterDto {
     private String paramName;
-    private String paramType; // "INPUT" 또는 "OUTPUT"
+    private String paramType;
     private String description;
     private boolean necessary;
+    private String defaultValue;
 }

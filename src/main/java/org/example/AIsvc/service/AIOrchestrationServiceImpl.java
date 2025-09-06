@@ -125,7 +125,13 @@ public class AIOrchestrationServiceImpl implements AIOrchestrationService {
                     promptBuilder.append("  * ").append(param.getParamName())
                                .append(" (").append(param.getParamType()).append(")")
                                .append(": ").append(param.getDescription())
-                               .append(param.isNecessary() ? " (필수)" : " (선택사항)").append("\n");
+                               .append(param.isNecessary() ? " (필수)" : " (선택사항)");
+                    
+                    // defaultValue가 있으면 표시
+                    if (param.getDefaultValue() != null && !param.getDefaultValue().trim().isEmpty()) {
+                        promptBuilder.append(" [기본값: ").append(param.getDefaultValue()).append("]");
+                    }
+                    promptBuilder.append("\n");
                 }
             }
             
@@ -151,9 +157,9 @@ public class AIOrchestrationServiceImpl implements AIOrchestrationService {
             promptBuilder.append("**필수 파라미터 처리 (절대 규칙):**\n");
             promptBuilder.append("- 위에 '(필수)'로 표시된 모든 파라미터는 반드시 응답에 포함되어야 합니다.\n");
             promptBuilder.append("- 필수 파라미터가 하나라도 누락되면 API 호출이 실패합니다.\n");
-            promptBuilder.append("- 필수 파라미터에 대한 값이 사용자 요청에서 명확하지 않으면 합리적인 기본값을 사용하세요.\n");
-            promptBuilder.append("- 예시: 암호화폐 관련 요청이면 ids=\"bitcoin\", 통화 관련이면 vs_currencies=\"usd\" 등\n");
-            promptBuilder.append("- 필수 파라미터를 빈 값(\"\")으로 두지 마세요.\n\n");
+            promptBuilder.append("- 파라미터에 [기본값: xxx] 표시가 있으면 반드시 그 값을 사용하세요.\n");
+            promptBuilder.append("- 기본값이 없는 파라미터만 사용자 요청에서 값을 추출하거나 합리적인 값을 설정하세요.\n");
+            promptBuilder.append("- 필수 파라미터를 빈 값(\"\")이나 설명 문장으로 두지 마세요.\n\n");
             
             promptBuilder.append("**데이터 타입 규칙:**\n");
             promptBuilder.append("- String 타입: 문자열 값 (예: \"bitcoin\", \"usd\")\n");
@@ -216,13 +222,27 @@ public class AIOrchestrationServiceImpl implements AIOrchestrationService {
                 requestBody = mapper.readValue(cleanedResponse, typeRef);
                 log.info("AI가 준비한 파라미터: {}", requestBody);
                 
-                // 필수 파라미터 누락 검사
+                // 필수 파라미터 누락 검사 및 defaultValue 설정
                 for (ApiParameterDto param : apiInfo.getParameters()) {
                     if (!"OUTPUT".equals(param.getParamType()) && param.isNecessary()) {
                         if (!requestBody.containsKey(param.getParamName())) {
-                            log.error("필수 파라미터 누락: {}", param.getParamName());
+                            // defaultValue가 있으면 사용
+                            if (param.getDefaultValue() != null && !param.getDefaultValue().trim().isEmpty()) {
+                                requestBody.put(param.getParamName(), param.getDefaultValue());
+                                log.info("필수 파라미터에 기본값 설정: {} = {}", param.getParamName(), param.getDefaultValue());
+                            } else {
+                                log.error("필수 파라미터 누락 (기본값 없음): {}", param.getParamName());
+                            }
                         } else {
                             log.info("필수 파라미터 확인됨: {} = {}", param.getParamName(), requestBody.get(param.getParamName()));
+                        }
+                    }
+                    // 선택사항 파라미터도 defaultValue가 있고 AI가 설정하지 않았다면 기본값 사용
+                    else if (!"OUTPUT".equals(param.getParamType()) && !param.isNecessary()) {
+                        if (!requestBody.containsKey(param.getParamName()) && 
+                            param.getDefaultValue() != null && !param.getDefaultValue().trim().isEmpty()) {
+                            requestBody.put(param.getParamName(), param.getDefaultValue());
+                            log.info("선택 파라미터에 기본값 설정: {} = {}", param.getParamName(), param.getDefaultValue());
                         }
                     }
                 }

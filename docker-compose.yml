@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8085:8085"
+    env_file:
+      - .env
+    environment:
+      # Kafka connection to external container
+      - KAFKA_BOOTSTRAP_SERVERS=systemmanagementsvc-kafka-1:9092
+      
+    # JSON 로그 형식으로 출력
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      
+    networks:
+      - systemmanagementsvc_app-network
+      - external-services
+
+networks:
+  systemmanagementsvc_app-network:
+    external: true
+  external-services:
+    external: true

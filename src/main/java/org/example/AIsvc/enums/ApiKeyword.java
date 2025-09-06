@@ -16,6 +16,7 @@ public enum ApiKeyword {
     TEMPERATURE("temperature", "기온", ApiDomain.WEATHER, "온도 정보"),
     PRECIPITATION("precipitation", "강수량", ApiDomain.WEATHER, "비, 눈 정보"),
     UV_INDEX("uv_index", "자외선지수", ApiDomain.WEATHER, "자외선 강도"),
+    HEATWAVE_REPORT("heatwave_report", "폭염특보", ApiDomain.WEATHER, "폭염특보 기록"),
 
     // === 뉴스 관련 키워드 ===
     BREAKING_NEWS("breaking_news", "속보", ApiDomain.NEWS, "실시간 속보"),

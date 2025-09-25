@@ -310,6 +310,9 @@ public class AIOrchestrationServiceImpl implements AIOrchestrationService {
         log.info("커스텀 API 실행 완료. API ID: {}", customApiId);
         
         // 5. AI+ 기능이 활성화된 경우, 개인화 서비스를 통해 분석을 추가
+        log.info("[DEBUG] AI+ 조건 확인 - isAiPlusEnabled: {}, userId: {}, anonymous 체크: {}", 
+                isAiPlusEnabled, userId, userId.equals("anonymous"));
+        
         if (isAiPlusEnabled && !userId.equals("anonymous")) {
             log.info("AI+ 기능 활성화. 사용자(ID: {})의 분석 요구사항: {}", userId, aiPlusActive);
             try {

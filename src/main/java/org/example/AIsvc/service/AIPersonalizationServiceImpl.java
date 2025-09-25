@@ -36,7 +36,10 @@ public class AIPersonalizationServiceImpl implements AIPersonalizationService {
     @Override
     public Map<String, Object> personalize(String userId, Object rawData, String analysisQuery) {
         try {
+            log.info("[DEBUG] AI+ 개인화 시작 - userId: {}, analysisQuery: {}", userId, analysisQuery);
+            
             // 1. 사용자 서비스에 문의하여 사용자의 구독 플랜 정보를 가져옴
+            log.info("[DEBUG] 사용자 플랜 조회 시도 - userId: {}", userId);
             UserPlanResponse planResponse = userApiClient.getUserPlan(userId);
             String planName = planResponse.getPlanName().toUpperCase();
             log.info("사용자(ID: {}) 플랜 확인: {}", userId, planName);
@@ -64,7 +67,10 @@ public class AIPersonalizationServiceImpl implements AIPersonalizationService {
     // 무료 사용자를 위한 개인화 로직을 처리하는 private 메소드
     private Map<String, Object> personalizeForFreeUser(String userId, Object rawData, String analysisQuery) throws JsonProcessingException {
         // 사용자의 BYOK 키(ARN) 정보를 조회
+        log.info("[DEBUG] 무료 사용자 BYOK 키 조회 시도 - userId: {}", userId);
         UserSecretResponse userSecret = userApiClient.getUserSecret(userId);
+        log.info("[DEBUG] BYOK 키 조회 결과 - userSecret: {}, secretValue 존재 여부: {}", 
+                userSecret, (userSecret != null && userSecret.getSecretValue() != null && !userSecret.getSecretValue().isEmpty()));
         if (userSecret == null || userSecret.getSecretValue() == null || userSecret.getSecretValue().isEmpty()) {
             log.warn("무료 사용자(ID: {})의 BYOK 키를 찾을 수 없습니다.", userId);
             throw new RuntimeException("AI+ 기능을 사용하려면 먼저 API 키를 설정해주세요.");

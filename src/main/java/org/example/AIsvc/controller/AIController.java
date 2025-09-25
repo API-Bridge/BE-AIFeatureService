@@ -3,6 +3,7 @@ package org.example.AIsvc.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.AIsvc.dto.common.BaseResponse;
 import org.example.AIsvc.dto.request.AnalyzeQueryRequest;
 import org.example.AIsvc.dto.response.AnalyzeQueryResponse;
@@ -28,6 +29,7 @@ import org.example.AIsvc.event.model.ExternalApiCallFailedEvent;
 import org.example.AIsvc.client.UserApiClient;
 import java.time.LocalDateTime;
 
+@Slf4j
 @Tag(name = "AI Service", description = "AI 기반 API 분석 및 생성 서비스")
 @RestController
 @RequestMapping("/ai")
@@ -83,6 +85,8 @@ public class AIController {
             @RequestParam String query,
             @Parameter(description = "AI+ 기능 및 분석 요구사항 (null이면 비활성화, 값이 있으면 해당 요구사항으로 AI 분석)", required = false)
             @RequestParam(value = "ai-plus", required = false) String aiPlusActive) {
+
+        log.info("[DEBUG] AI+ 파라미터 확인: aiPlusActive = '{}'", aiPlusActive);
 
         // 커스텀 API 호출 이벤트 발행
         CustomApiCalledEvent event = new CustomApiCalledEvent(

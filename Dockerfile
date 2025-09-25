@@ -1,5 +1,5 @@
 # Build stage
-FROM amazoncorretto:17-alpine AS builder
+FROM --platform=$BUILDPLATFORM amazoncorretto:17-alpine AS builder
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ COPY src src
 RUN ./gradlew build -x test
 
 # Runtime stage
-FROM amazoncorretto:17-alpine
+FROM --platform=$TARGETPLATFORM amazoncorretto:17-alpine
 
 WORKDIR /app
 
